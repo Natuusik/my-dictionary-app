@@ -1,0 +1,323 @@
+/* Базовые настройки страницы */
+body { 
+    font-family: 'Segoe UI', Arial, sans-serif; 
+    background-color: #f0fdf4; /* Нежный светло-зеленый фон */
+    color: #1e293b; 
+    margin: 0; 
+    padding: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    min-height: 100vh; 
+}
+
+/* Главная карточка-контейнер */
+.container { 
+    background: white; 
+    padding: 30px; 
+    border-radius: 24px; 
+    box-shadow: 0 10px 30px rgba(22, 163, 74, 0.05); 
+    width: 100%; 
+    max-width: 600px; 
+    text-align: center; 
+    border: 1px solid #bbf7d0; 
+    box-sizing: border-box;
+}
+
+h1 { 
+    color: #16a34a; 
+    font-size: 26px; 
+    margin-top: 0;
+    margin-bottom: 25px; 
+}
+
+/* 🟢 Раздельные полки: Переключатель языков (Вкладки) */
+.lang-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    border: 2px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background: #f1f5f9;
+}
+
+.tab-btn.active {
+    background: #16a34a;
+    color: white;
+    border-color: #16a34a;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
+}
+
+/* Внутренние блоки (карточки) */
+.card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.section-title {
+    font-size: 18px;
+    color: #1e293b;
+    margin-top: 0;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sub-title {
+    font-size: 14px;
+    color: #475569;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* Поля ввода и боксы добавления */
+.add-box, .add-word-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.add-word-form {
+    flex-direction: column;
+}
+
+input, select {
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #16a34a;
+    background: #ffffff;
+}
+
+/* Кнопки действий */
+.btn-action {
+    background: #16a34a;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.btn-action:hover { background: #15803d; }
+
+.btn-small-edit {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 5px;
+}
+
+/* 📂 Сетка папок (тем) */
+.topics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.topic-folder {
+    background: #fffbeb;
+    border: 2px solid #fef3c7;
+    border-radius: 12px;
+    padding: 15px 10px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.topic-folder:hover {
+    transform: translateY(-2px);
+    border-color: #fde68a;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.1);
+}
+
+.topic-folder.active {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+.folder-icon {
+    font-size: 32px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.folder-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #78350f;
+    word-break: break-word;
+}
+
+.btn-delete-folder {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 0 4px;
+}
+
+/* Настройка и запуск тренировки */
+.training-setup-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.btn-start-play {
+    background: #2563eb;
+    color: white;
+    border: none;
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.2s;
+}
+
+.btn-start-play:hover { background: #1d4ed8; }
+
+/* Список слов внутри папки */
+.words-list-box {
+    margin-top: 15px;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.word-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.word-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-mic {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-mic.recording {
+    background: #ef4444;
+    animation: pulse 1s infinite;
+}
+
+.btn-delete-word {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* 🎬 Экран активного аудио-тренажёра */
+.trainer-screen { 
+    margin-top: 10px; 
+    padding: 30px 20px; 
+    background: #f8fafc; 
+    border-radius: 16px; 
+    border: 1px solid #e2e8f0; 
+    display: none; 
+}
+
+.current-word { 
+    font-size: 30px; 
+    font-weight: bold; 
+    color: #0f172a; 
+    min-height: 45px; 
+    margin-bottom: 10px; 
+}
+
+.translation-word { 
+    font-size: 24px; 
+    color: #475569; 
+    min-height: 35px; 
+    font-weight: 500; 
+}
+
+.audio-type { 
+    font-size: 13px; 
+    color: #16a34a; 
+    margin-top: 8px; 
+    font-weight: bold; 
+}
+
+.timer { 
+    font-size: 14px; 
+    color: #ef4444; 
+    font-weight: bold; 
+    margin-top: 15px; 
+}
+
+button.stop { 
+    background: #ef4444; 
+    margin-top: 25px;
+    width: 100%;
+}
+button.stop:hover { background: #dc2626; }
+
+@keyframes pulse { 
+    0% { opacity: 1; } 
+    50% { opacity: 0.5; } 
+    100% { opacity: 1; } 
+}
