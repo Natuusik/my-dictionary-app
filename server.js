@@ -13,10 +13,13 @@ const PORT = process.env.PORT || 3000;
 // Секретный ключ для шифрования токенов пользователей
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key_dictionary_123";
 
-// Настройка подключения к существующей базе данных на Render
+// НАДЁЖНОЕ ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ
+// Этот код сам разберётся, нужен ли SSL на компьютере и на Render
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') 
+    ? { rejectUnauthorized: false } 
+    : false
 });
 
 app.use(express.json());
