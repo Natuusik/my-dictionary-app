@@ -6,8 +6,9 @@
 const SUPABASE_URL = "https://pectfpuacdbkompcwyfm.supabase.co/rest/v1/";
 const SUPABASE_ANON_KEY = "sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D";
 
-// Инициализируем клиента Supabase (теперь он делает всю работу сервера)
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ИСПРАВЛЕНО: Пишем Supabase с большой буквы!
+const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 
 let currentLanguage = 'en'; // Выбранный язык по умолчанию ('en' или 'et')
 let activeTopicId = null;    // ID открытой в данный момент папки
