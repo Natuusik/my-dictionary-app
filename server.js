@@ -3,30 +3,27 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Pool } = require('pg');
+const { Pool } = require('pg'); // Убедитесь, что эта строка есть!
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Секретный ключ для шифрования токенов пользователей
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key_dictionary_123";
 
-// НАДЁЖНОЕ ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ (Защита от падения 502 на Render)
-const dbUrl = process.env.DATABASE_URL;
-
-if (!dbUrl) {
-  console.error("КРИТИЧЕСКАЯ ОШИБКА: Переменная DATABASE_URL не найдена сервером!");
-}
-
+// Подключение с защитой от падения
 const pool = new Pool({
-  connectionString: dbUrl,
+  connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
 });
 
+// Отлавливаем ошибки подключения, чтобы сервер не умирал
+pool.on('error', (err) => {
+  console.error('Непредвиденная ошибка в пуле базы данных:', err);
+});
 
 
 // ВАЖНО: Разрешаем серверу отдавать файлы ПРЯМО ИЗ КОРНЯ проекта
