@@ -1,12 +1,19 @@
 // ========================================================
-// 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ХРАНИЛИЩА (БАЗА ДАННЫХ + AUTH)
+// 1. ИНИЦИАЛИЗАЦИЯ SUPABASE И СОСТОЯНИЯ ПРИЛОЖЕНИЯ
 // ========================================================
+
+// ВСТАВЬТЕ СЮДА ВАШИ ДАННЫЕ ИЗ БЛОКНОТА:
+const SUPABASE_URL = "https://pectfpuacdbkompcwyfm.supabase.co/rest/v1/";
+const SUPABASE_ANON_KEY = "sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D";
+
+// Инициализируем клиента Supabase (теперь он делает всю работу сервера)
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentLanguage = 'en'; // Выбранный язык по умолчанию ('en' или 'et')
 let activeTopicId = null;    // ID открытой в данный момент папки
 let availableVoices = [];    // Список доступных роботов озвучки
 
-// Базовая структура
+// Базовая структура данных словаря
 let appData = { en: [], et: [] };
 
 // Системные переменные для работы диктофона и аудио-тренажёра
@@ -17,27 +24,71 @@ let wordTimeout = null;
 let countdownInterval = null;
 let isTraining = false;
 
-// ФУНКЦИЯ СОХРАНЕНИЯ: Отправляет данные на сервер в PostgreSQL
+// ФУНКЦИЯ СОХРАНЕНИЯ: Отправляет appData в таблицу user_dictionaries в Supabase
 async function saveData() {
-    const token = localStorage.getItem('userToken');
-    if (!token) return; // Если пользователь не вошел, ничего не делаем
+    // Получаем текущего залогиненного пользователя из сессии Supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Если пользователь не вошел, ничего не делаем
 
     localStorage.setItem('my_dictionary_current_lang', currentLanguage);
 
+    // Сохраняем (или обновляем) данные словаря для этого пользователя
+    const { error } = await supabase
+        .from('user_dictionaries')
+        .upsert(
+            { user_id: user.id, app_data: appData }, 
+            { onConflict: 'user_id' }
+        );
+
+    if (error) {
+        console.error("Ошибка сохранения данных в Supabase:", error.message);
+    }
+}
+
+// ФУНКЦИЯ ЗАГРУЗКИ: Достает папки и слова из Supabase при старте страницы
+async function loadData() {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Проверяем, вошел ли пользователь вообще
+    if (!user) {
+        if (document.getElementById('authScreen')) document.getElementById('authScreen').style.display = 'block';
+        if (document.getElementById('mainScreen')) document.getElementById('mainScreen').style.display = 'none';
+        return;
+    }
+
+    // Если пользователь залогинен, показываем основное приложение
+    if (document.getElementById('authScreen')) document.getElementById('authScreen').style.display = 'none';
+    if (document.getElementById('mainScreen')) document.getElementById('mainScreen').style.display = 'block';
+    if (document.getElementById('userInfoText')) document.getElementById('userInfoText').innerText = `👤 Аккаунт: ${user.email}`;
+
+    // Восстанавливаем последний выбранный язык из локальной памяти браузера
+    const savedLang = localStorage.getItem('my_dictionary_current_lang');
+    if (savedLang) currentLanguage = savedLang;
+
     try {
-        const response = await fetch('/api/data', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // Передаем токен для авторизации
-            },
-            body: JSON.stringify(appData)
-        });
+        // Запрашиваем строку данных из нашей таблицы
+        const { data, error } = await supabase
+            .from('user_dictionaries')
+            .select('app_data')
+            .eq('user_id', user.id)
+            .maybeSingle(); // На случай, если пользователь зашел впервые и строки еще нет
+
+        if (error) throw error;
+
+        // Если данные в базе найдены — загружаем их, если нет — создаем пустую структуру
+        if (data && data.app_data) {
+            appData = data.app_data;
+        } else {
+            appData = { en: [], et: [] };
+            await saveData(); // Создаем пустую запись в базе для нового игрока
+        }
         
-        const result = await response.json();
-        if (!response.ok) console.error("Ошибка сохранения:", result.error);
+        // Рисуем папки на экране
+        if (typeof renderTopics === 'function') {
+            renderTopics(); 
+        }
     } catch (e) {
-        console.error("Ошибка сети при сохранении данных:", e);
+        console.error("Ошибка при получении данных из базы:", e);
     }
 }
 
@@ -93,67 +144,83 @@ async function loadData() {
 // НОВЫЙ БЛОК 1: ФУНКЦИИ АВТОРИЗАЦИИ (ВХОД / РЕГИСТРАЦИЯ / ВЫХОД)
 // ========================================================
 
+/// ========================================================
+// НОВЫЙ БЛОК: ФУНКЦИИ АВТОРИЗАЦИИ ЧЕРЕЗ SUPABASE AUTH
+// ========================================================
+
 // Обработка кнопок "Войти" и "Регистрация"
 async function handleAuth(type) {
-    const usernameInput = document.getElementById('authUsername').value.trim();
+    const emailInput = document.getElementById('authUsername').value.trim();
     const passwordInput = document.getElementById('authPassword').value.trim();
     const msgElement = document.getElementById('authMessage');
 
-    if (!usernameInput || !passwordInput) {
+    if (!emailInput || !passwordInput) {
         msgElement.style.color = 'red';
         msgElement.innerText = "⚠️ Заполните все поля!";
         return;
     }
 
-    const url = type === 'login' ? '/api/login' : '/api/register';
+    // ВАЖНО: Supabase по умолчанию требует, чтобы логин был в формате Email!
+    // Если пользователь ввел просто слово, мы автоматически превратим его в "логин@dictionary.app"
+    let formattedEmail = emailInput;
+    if (!emailInput.includes('@')) {
+        formattedEmail = `${emailInput}@dictionary.app`;
+    }
+
     msgElement.style.color = '#3b82f6';
-    msgElement.innerText = type === 'login' ? "Вход..." : "Регистрация аккаунта...";
+    msgElement.innerText = type === 'login' ? "Вход в аккаунт..." : "Регистрация аккаунта...";
 
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: usernameInput, password: passwordInput })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            msgElement.style.color = 'red';
-            msgElement.innerText = `❌ ${result.error || 'Ошибка'}`;
-            return;
-        }
-
         if (type === 'register') {
+            // 1. РЕГИСТРАЦИЯ В SUPABASE
+            const { data, error } = await supabase.auth.signUp({
+                email: formattedEmail,
+                password: passwordInput,
+            });
+
+            if (error) throw error;
+
             msgElement.style.color = 'green';
             msgElement.innerText = "✅ Регистрация успешна! Теперь нажмите 'Войти'";
-        } else {
-            // Сохраняем токен в память браузера
-            localStorage.setItem('userToken', result.token);
-            localStorage.setItem('username', result.username);
             
-            // Очищаем форму и загружаем данные словаря
+        } else {
+            // 2. ВХОД В SUPABASE
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: formattedEmail,
+                password: passwordInput,
+            });
+
+            if (error) throw error;
+
+            // Очищаем форму и загружаем данные словаря этого пользователя
             document.getElementById('authUsername').value = '';
             document.getElementById('authPassword').value = '';
             msgElement.innerText = '';
             
-            loadData();
+            await loadData();
         }
     } catch (e) {
         msgElement.style.color = 'red';
-        msgElement.innerText = "❌ Ошибка соединения с сервером";
+        // Переводим самые частые ошибки на русский язык для удобства
+        let errorMsg = e.message;
+        if (errorMsg.includes("Invalid login credentials")) errorMsg = "Неверный логин или пароль";
+        if (errorMsg.includes("User already registered")) errorMsg = "Этот логин уже занят";
+        if (errorMsg.includes("Password should be at least")) errorMsg = "Пароль должен быть не менее 6 символов";
+        
+        msgElement.innerText = `❌ ${errorMsg}`;
+        console.error("Ошибка авторизации Supabase:", e);
     }
 }
 
 // Выход из аккаунта
-function handleLogout() {
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('username');
+async function handleLogout() {
+    await supabase.auth.signOut();
     document.getElementById('authScreen').style.display = 'block';
     document.getElementById('mainScreen').style.display = 'none';
     document.getElementById('authMessage').style.color = 'black';
     document.getElementById('authMessage').innerText = "Вы успешно вышли из аккаунта.";
 }
+
 
 // ========================================================
 // 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
