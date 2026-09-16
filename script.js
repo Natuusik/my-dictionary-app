@@ -90,7 +90,7 @@ async function loadData() {
 }
 
 // ========================================================
-// НОВЫЙ БЛОК: ФУНКЦИИ АВТОРИЗАЦИИ (ВХОД / РЕГИСТРАЦИЯ / ВЫХОД)
+// НОВЫЙ БЛОК 1: ФУНКЦИИ АВТОРИЗАЦИИ (ВХОД / РЕГИСТРАЦИЯ / ВЫХОД)
 // ========================================================
 
 // Обработка кнопок "Войти" и "Регистрация"
@@ -783,7 +783,6 @@ async function loadData() {
         if (document.getElementById('mainScreen')) document.getElementById('mainScreen').style.display = 'none';
         return;
     }
-
     // Если токен есть, показываем основное приложение
     if (document.getElementById('authScreen')) document.getElementById('authScreen').style.display = 'none';
     if (document.getElementById('mainScreen')) document.getElementById('mainScreen').style.display = 'block';
@@ -814,4 +813,9 @@ async function loadData() {
     } catch (e) {
         console.error("Ошибка сети при загрузке данных:", e);
     }
+}
+
+// ГЛАВНЫЙ ЗАПУСК: Инициализируем приложение при загрузке страницы
+if (typeof initApp === 'function') {
+    initApp();
 }
