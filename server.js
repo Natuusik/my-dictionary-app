@@ -13,13 +13,20 @@ const PORT = process.env.PORT || 3000;
 // Секретный ключ для шифрования токенов пользователей
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key_dictionary_123";
 
-// НАДЁЖНОЕ ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ (Автоматический SSL для Render)
+// НАДЁЖНОЕ ПОДКЛЮЧЕНИЕ К БАЗЕ ДАННЫХ (Защита от падения 502 на Render)
+const dbUrl = process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  console.error("КРИТИЧЕСКАЯ ОШИБКА: Переменная DATABASE_URL не найдена сервером!");
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
   ssl: {
     rejectUnauthorized: false
   }
 });
+
 
 
 // ВАЖНО: Разрешаем серверу отдавать файлы ПРЯМО ИЗ КОРНЯ проекта
