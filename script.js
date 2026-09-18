@@ -564,7 +564,6 @@ function toggleTraining() {
     }
 }
 
-// ФУНКЦИЯ: Старт тренировки
 function startTraining() {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     
@@ -588,7 +587,6 @@ function startTraining() {
     nextTrainingStep(); 
 }
 
-// ФУНКЦИЯ: Полная остановка тренировки (Кнопка Стоп)
 function stopTraining() {
     isTraining = false;
     clearTimeout(wordTimeout);
@@ -665,11 +663,10 @@ function nextTrainingStep() {
         }
     }
 
-    // Умная раздельная озвучка: ИИ для Эстонского и ИИ для Русского
+    // Умное разделение: Эстонский через ИИ Mari, остальные — через Премиум-голоса системы
     function speakWithRobot(text, targetLang) {
-        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 ИИ-озвучка";
+        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Умная озвучка";
 
-        // 1. ОЗВУЧКА ДЛЯ ЭСТОНСКОГО ЯЗЫКА (ИИ Мари от Института EKI)
         if (targetLang.startsWith('et')) {
             const ekiUrl = `https://eki.ee{encodeURIComponent(text)}`;
             const audio = new Audio(ekiUrl);
@@ -680,28 +677,10 @@ function nextTrainingStep() {
             return;
         }
 
-        // 2. СУПЕР-РУССКИЙ (Живой облачный ИИ-голос, похожий на Алису)
-        if (targetLang.startsWith('ru')) {
-            // Используем современный облачный движок со сверхреалистичным произношением
-            const ttsUrl = `https://dictionary-voice-pack.ru{encodeURIComponent(text)}&lang=ru`;
-            const audio = new Audio(ttsUrl);
-            audio.playbackRate = currentSpeed;
-            audio.play().catch(() => {
-                // Если облако перегружено, включаем второе ИИ-зеркало
-                const mirrorUrl = `https://google.com{encodeURIComponent(text)}`;
-                const mirrorAudio = new Audio(mirrorUrl);
-                mirrorAudio.playbackRate = currentSpeed;
-                mirrorAudio.play().catch(() => {
-                    fallbackSpeech(text, 'ru-RU');
-                });
-            });
-            return;
-        }
-
-        // 3. АВТОМАТИЧЕСКАЯ ОЗВУЧКА ДЛЯ АНГЛИЙСКОГО
         fallbackSpeech(text, targetLang);
     }
 
+    // [ОБНОВЛЕНО]: Алгоритм поиска Сверхреалистичных (Natural/Premium) голосов в системе устройства
     function fallbackSpeech(text, targetLang) {
         if (typeof speechSynthesis === 'undefined') return;
         
@@ -711,7 +690,17 @@ function nextTrainingStep() {
         const allVoices = window.speechSynthesis.getVoices();
         const shortLang = targetLang.substring(0, 2).toLowerCase();
 
-        let bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && v.name.includes('Google'));
+        // Пошаговый поиск лучшего голоса:
+        // 1. Ищем современные "Natural" или "Premium" ИИ-голоса от Microsoft/Google/Apple
+        let bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && (v.name.includes('Natural') || v.name.includes('Premium')));
+        
+        // 2. Если нет, ищем качественные голоса от Google
+        if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && v.name.includes('Google'));
+        
+        // 3. Если нет, ищем стандартный голос Microsoft (например, Ирина) или Apple (Милена)
+        if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && (v.name.includes('Irina') || v.name.includes('Milena')));
+        
+        // 4. Откатываемся на любой доступный для этого языка
         if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang));
 
         if (bestVoice) {
@@ -775,5 +764,4 @@ function initApp() {
     switchLanguage(currentLanguage);
 }
 
-// ГЛАВНЫЙ СТАРТ ПРИЛОЖЕНИЯ
 checkSession();
