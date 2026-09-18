@@ -1,234 +1,8 @@
 // ========================================================
-// 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И СЕРВЕРНОЙ АВТОРИЗАЦИИ
-// ========================================================
-
-let currentLanguage = 'en'; 
-let activeTopicId = null;    
-let availableVoices = [];    
-
-// Глобальная переменная для хранения имени вошедшего пользователя
-let currentUser = localStorage.getItem('dictionary_logged_user') || null;
-let appData = { en: [], et: [] };
-
-// Базовые стартовые папки на случай, если у нового пользователя ещё ничего нет
-const defaultAppData = {
-    en: [
-        {
-            id: 1,
-            name: "🔥 Глаголы",
-            words: [
-                { id: 101, foreign: "abilities", russian: "способности", customAudio: null },
-                { id: 102, foreign: "environment", russian: "окружающая среда", customAudio: null }
-            ]
-        }
-    ],
-    et: []
-};
-
-// ФУНКЦИЯ СОХРАНЕНИЯ: Отправляет изменения на сервер конкретному пользователю
-async function saveData() {
-    if (!currentUser) return;
-    
-    try {
-        await fetch('/api/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                username: currentUser,
-                appData: appData
-            })
-        });
-        localStorage.setItem('my_dictionary_current_lang', currentLanguage);
-        // Дополнительно страхуемся в локальной памяти устройства
-        localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
-    } catch (error) {
-        console.error("Ошибка отправки данных на сервер:", error);
-    }
-}
-
-// [ИСПРАВЛЕНО]: Восстановленная функция загрузки данных, которую требовал initApp()!
-async function loadData() {
-    if (!currentUser) return;
-    try {
-        const response = await fetch('/api/data');
-        const result = await response.json();
-
-        if (result.status === "success" && result.data) {
-            appData = result.data;
-        } else {
-            // Если сервер выдал пустоту, проверяем локальный бэкап устройства
-            const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
-            appData = backup ? JSON.parse(backup) : JSON.parse(JSON.stringify(defaultAppData));
-        }
-    } catch (error) {
-        console.error("Ошибка загрузки, берем локальный бэкап:", error);
-        const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
-        appData = backup ? JSON.parse(backup) : JSON.parse(JSON.stringify(defaultAppData));
-    }
-}
-
-// [ИСПРАВЛЕНО]: Функция строго для входа в существующий аккаунт
-async function handleLoginOnly() {
-    const userInput = document.getElementById('authUsername');
-    const passInput = document.getElementById('authPassword');
-    const errorBlock = document.getElementById('authError');
-    
-    if (!userInput || !passInput) return;
-    
-    const username = userInput.value.trim();
-    const password = passInput.value.trim();
-    
-    if (!username || !password) {
-        if (errorBlock) errorBlock.innerText = "Введите и логин, и пароль!";
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            currentUser = result.user;
-            localStorage.setItem('dictionary_logged_user', currentUser);
-            appData = result.appData || { en: [], et: [] };
-            
-            const infoText = document.getElementById('userInfoText');
-            if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
-            
-            document.getElementById('authScreen').style.display = 'none';
-            document.getElementById('mainScreen').style.display = 'block';
-            
-            initApp();
-        } else {
-            if (errorBlock) errorBlock.innerText = result.error || "Неверный логин или пароль!";
-        }
-    } catch (err) {
-        if (errorBlock) errorBlock.innerText = "Сервер недоступен. Проверьте vercel.json!";
-    }
-}
-
-// [ИСПРАВЛЕНО]: Функция строго для регистрации нового аккаунта
-async function handleRegisterOnly() {
-    const userInput = document.getElementById('authUsername');
-    const passInput = document.getElementById('authPassword');
-    const errorBlock = document.getElementById('authError');
-    
-    if (!userInput || !passInput) return;
-    
-    const username = userInput.value.trim();
-    const password = passInput.value.trim();
-    
-    if (!username || !password) {
-        if (errorBlock) errorBlock.innerText = "Заполните поля для регистрации!";
-        return;
-    }
-
-    if (password.length < 4) {
-        if (errorBlock) errorBlock.innerText = "Пароль должен быть от 4 символов!";
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            if (result.message && result.message.includes('Новый аккаунт')) {
-                if (errorBlock) {
-                    errorBlock.style.color = '#10b981'; // зелёный текст успеха
-                    errorBlock.innerText = `🎉 Профиль "${username}" создан! Нажмите кнопку "Войти"`;
-                }
-                passInput.value = '';
-            } else {
-                if (errorBlock) {
-                    errorBlock.style.color = '#ef4444';
-                    errorBlock.innerText = "Этот логин уже занят другим человеком!";
-                }
-            }
-        } else {
-            if (errorBlock) errorBlock.innerText = result.error || "Ошибка регистрации";
-        }
-    } catch (err) {
-        if (errorBlock) errorBlock.innerText = "Сервер недоступен!";
-    }
-}
-
-// Функция выхода из личного кабинета
-function handleLogout() {
-    currentUser = null;
-    localStorage.removeItem('dictionary_logged_user');
-    appData = { en: [], et: [] };
-    activeTopicId = null;
-    
-    const contentBlock = document.getElementById('folderContentBlock');
-    if (contentBlock) contentBlock.style.display = 'none';
-    
-    document.getElementById('authScreen').style.display = 'block';
-    document.getElementById('mainScreen').style.display = 'none';
-}
-
-// Проверка сессии при загрузке страницы
-function checkSession() {
-    const savedLang = localStorage.getItem('my_dictionary_current_lang');
-    if (savedLang) currentLanguage = savedLang;
-
-    if (currentUser) {
-        document.getElementById('authScreen').style.display = 'none';
-        document.getElementById('mainScreen').style.display = 'block';
-        
-        const infoText = document.getElementById('userInfoText');
-        if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
-        
-        // [ИСПРАВЛЕНО]: При авто-входе сначала подтягиваем бэкап, чтобы экран не мигал пустым
-        const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
-        if (backup) appData = JSON.parse(backup);
-        
-        fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: currentUser, password: "" }) 
-        })
-        .then(res => res.json())
-        .then(result => {
-            if (result.success && result.appData) {
-                appData = result.appData;
-                localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
-            }
-            initApp();
-        })
-        .catch(() => {
-            initApp();
-        });
-    } else {
-        document.getElementById('authScreen').style.display = 'block';
-        document.getElementById('mainScreen').style.display = 'none';
-    }
-}
-
-let mediaRecorder = null;
-let audioChunks = [];
-let recordingWordId = null;
-let wordTimeout = null;
-let countdownInterval = null;
-let isTraining = false;
-
-
-
-// ========================================================
 // 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
 // ========================================================
 
-async function switchLanguage(lang) {
+function switchLanguage(lang) {
     currentLanguage = lang;
     activeTopicId = null; 
     
@@ -240,7 +14,7 @@ async function switchLanguage(lang) {
     const contentBlock = document.getElementById('folderContentBlock');
     if (contentBlock) contentBlock.style.display = 'none';
     
-    await saveData();     
+    saveData();     
     renderTopics(); 
 }
 
@@ -274,7 +48,7 @@ function renderTopics() {
     });
 }
 
-async function createTopic() {
+function createTopic() {
     const input = document.getElementById('newTopicInput');
     if (!input) return;
     
@@ -287,11 +61,11 @@ async function createTopic() {
     appData[currentLanguage].push(newTopic);
     input.value = ''; 
     
-    await saveData();     
+    saveData();     
     renderTopics(); 
 }
 
-async function deleteTopic(id) {
+function deleteTopic(id) {
     if (!confirm("Удалить эту папку и все слова внутри неё?")) return;
     appData[currentLanguage] = appData[currentLanguage].filter(t => t.id !== id);
     
@@ -300,11 +74,11 @@ async function deleteTopic(id) {
         const contentBlock = document.getElementById('folderContentBlock');
         if (contentBlock) contentBlock.style.display = 'none';
     }
-    await saveData(); 
+    saveData(); 
     renderTopics();
 }
 
-async function renameActiveTopic() {
+function renameActiveTopic() {
     const currentTopics = appData[currentLanguage] || [];
     const topic = currentTopics.find(t => t.id === activeTopicId);
     if (!topic) return;
@@ -314,13 +88,152 @@ async function renameActiveTopic() {
         topic.name = newName.trim();
         const activeFolderNameElem = document.getElementById('activeFolderName');
         if (activeFolderNameElem) activeFolderNameElem.innerText = topic.name;
-        await saveData(); 
+        saveData(); 
         renderTopics(); 
     }
 }
-
 // ========================================================
-// 3. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
+// 3. РАБОТА СО СЛОВАМИ И ЗАПИСЬ ГОЛОСА (BASE64)
+// ========================================================
+
+function openTopic(id) {
+    activeTopicId = id;
+    const topic = appData[currentLanguage].find(t => t.id === id);
+    if (!topic) return;
+
+    const activeFolderNameElem = document.getElementById('activeFolderName');
+    const contentBlock = document.getElementById('folderContentBlock');
+    
+    if (activeFolderNameElem) activeFolderNameElem.innerText = topic.name;
+    if (contentBlock) contentBlock.style.display = 'block';
+    
+    renderTopics(); 
+    renderWords();  
+}
+
+function renderWords() {
+    const container = document.getElementById('wordsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    if (!topic || topic.words.length === 0) {
+        container.innerHTML = '<p style="color:#64748b; font-size:14px; padding:10px 0;">В этой папке пока пусто. Добавь слова ниже!</p>';
+        return;
+    }
+
+    topic.words.forEach(w => {
+        const item = document.createElement('div');
+        item.className = 'word-item';
+        
+        const hasVoice = w.customAudio ? '🔊 Послушать' : '🎙 Записать';
+
+        item.innerHTML = `
+            <div style="text-align: left;">
+                <strong>${w.foreign}</strong> — <span style="color:#64748b;">${w.russian}</span>
+            </div>
+            <div class="word-actions">
+                <button class="btn-mic" id="mic-btn-${w.id}" onclick="handleVoiceAction(${w.id})">${hasVoice}</button>
+                <button class="btn-delete-word" onclick="deleteWord(${w.id})">🗑️</button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function addWordToTopic() {
+    const foreignInput = document.getElementById('foreignWordInput');
+    const russianInput = document.getElementById('russianWordInput');
+    if (!foreignInput || !russianInput) return;
+    
+    const foreignText = foreignInput.value.trim();
+    const russianText = russianInput.value.trim();
+
+    if (!foreignText || !russianText) {
+        alert("Заполни оба поля!");
+        return;
+    }
+
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    if (topic) {
+        topic.words.push({
+            id: Date.now(),
+            foreign: foreignText,
+            russian: russianText,
+            customAudio: null
+        });
+
+        foreignInput.value = '';
+        russianInput.value = '';
+        
+        saveData(); 
+        renderWords(); 
+    }
+}
+
+function deleteWord(wordId) {
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    if (topic) {
+        topic.words = topic.words.filter(w => w.id !== wordId);
+        saveData(); 
+        renderWords();
+    }
+}
+
+function handleVoiceAction(wordId) {
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    const word = topic ? topic.words.find(w => w.id === wordId) : null;
+    
+    if (word && word.customAudio) {
+        const audio = new Audio(word.customAudio);
+        audio.play();
+    } else {
+        toggleRecord(wordId);
+    }
+}
+
+async function toggleRecord(wordId) {
+    const btn = document.getElementById(`mic-btn-${wordId}`);
+    if (!btn) return;
+    
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        recordingWordId = wordId;
+        audioChunks = [];
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = function() {
+                const base64Audio = reader.result;
+                const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+                const word = topic ? topic.words.find(w => w.id === recordingWordId) : null;
+                
+                if (word) {
+                    word.customAudio = base64Audio; 
+                    saveData();                    
+                    renderWords();                 
+                }
+            };
+        };
+        
+        mediaRecorder.start();
+        btn.innerText = "🛑 Стоп";
+        btn.style.background = "#ef4444";
+    } else {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+}
+// ========================================================
+// 4. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
 // ========================================================
 
 function populateVoiceList() {
@@ -332,7 +245,6 @@ function populateVoiceList() {
 
     voiceSelect.innerHTML = '';
 
-    // Вариант А: Если браузер честно отдал системные голоса
     if (availableVoices.length > 0) {
         const filteredVoices = availableVoices.filter(voice => {
             const lang = voice.lang.toLowerCase();
@@ -358,7 +270,6 @@ function populateVoiceList() {
         return; 
     }
 
-    // Вариант Б: Резервный список, если браузер заблокировал загрузку локально
     const fakeVoices = [
         { name: "🇷🇺 Робот Ирина (Стандартный русский)", lang: "ru-RU", id: "fake-ru" },
         { name: "🇬🇧 Робот Джон (Стандартный английский)", lang: "en-US", id: "fake-en" },
@@ -380,7 +291,6 @@ function populateVoiceList() {
     }
 }
 
-// Запускаем непрерывный опрос системы до полной готовности голосов
 let voiceCheckInterval = setInterval(() => {
     if (typeof speechSynthesis !== 'undefined') {
         const voices = window.speechSynthesis.getVoices();
@@ -415,12 +325,12 @@ function loadTrainerSettings() {
     const speedInput = document.getElementById('speedRangeNew');
     const pauseInput = document.getElementById('pauseRangeNew');
     const modeSelect = document.getElementById('modeSelectNew');
-    const voiceSelect = document.getElementById('voiceSelectNew'); // [ИСПРАВЛЕНО] Находим инпут роботов
+    const voiceSelect = document.getElementById('voiceSelectNew');
 
     const savedSpeed = localStorage.getItem('trainer_saved_speed');
     const savedPause = localStorage.getItem('trainer_saved_pause');
     const savedMode = localStorage.getItem('trainer_saved_mode');
-    const savedVoice = localStorage.getItem('trainer_saved_voice'); // [ИСПРАВЛЕНО] Берем робота из памяти
+    const savedVoice = localStorage.getItem('trainer_saved_voice');
 
     if (savedSpeed && speedInput) {
         speedInput.value = savedSpeed;
@@ -435,7 +345,6 @@ function loadTrainerSettings() {
     if (savedMode && modeSelect) {
         modeSelect.value = savedMode;
     }
-    // [ИСПРАВЛЕНО] Принудительно выставляем сохраненного робота на экран
     if (savedVoice && voiceSelect && voiceSelect.querySelector(`option[value="${savedVoice}"]`)) {
         voiceSelect.value = savedVoice;
     }
@@ -451,10 +360,8 @@ document.addEventListener("input", (e) => {
         saveTrainerSettings(); 
     }
 });
-
-
 // ========================================================
-// 4. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// 4.1. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ========================================================
 
 function toggleTraining() {
@@ -465,6 +372,7 @@ function toggleTraining() {
     }
 }
 
+// ФУНКЦИЯ: Старт тренировки
 function startTraining() {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     
@@ -488,6 +396,7 @@ function startTraining() {
     nextTrainingStep(); 
 }
 
+// ФУНКЦИЯ: Остановка тренировки
 function stopTraining() {
     isTraining = false;
     clearTimeout(wordTimeout);
@@ -593,7 +502,7 @@ function nextTrainingStep() {
     countdownInterval = setInterval(() => {
         secondsLeft--;
         if (secondsLeft > 0 && timerDisplay) {
-            timerDisplay.innerText = `Вспомни перевод... (${secondsLeft} сек)`;
+            document.getElementById('timerDisplay').innerText = `Вспомни перевод... (${secondsLeft} сек)`;
         } else {
             clearInterval(countdownInterval);
         }
@@ -625,9 +534,10 @@ function nextTrainingStep() {
 function handleSmartOfflineInput(text) {}
 
 function initApp() {
+    loadData();
     loadTrainerSettings(); 
     switchLanguage(currentLanguage);
 }
 
-// Единственная правильная точка старта. Сначала сессия, потом initApp!
+// Запуск сессии при загрузке страницы
 checkSession();
