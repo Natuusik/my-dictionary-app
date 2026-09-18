@@ -359,6 +359,28 @@ function handleVoiceAction(wordId) {
         toggleRecord(wordId);
     }
 }
+// [ДОБАВИТЬ ЭТИ ДВЕ ФУНКЦИИ ПЕРЕД toggleRecord]
+
+function deleteWord(wordId) {
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    if (topic) {
+        topic.words = topic.words.filter(w => w.id !== wordId);
+        saveData(); 
+        renderWords();
+    }
+}
+
+function handleVoiceAction(wordId) {
+    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+    const word = topic ? topic.words.find(w => w.id === wordId) : null;
+    
+    if (word && word.customAudio) {
+        const audio = new Audio(word.customAudio);
+        audio.play();
+    } else {
+        toggleRecord(wordId);
+    }
+}
 
 async function toggleRecord(wordId) {
     const btn = document.getElementById(`mic-btn-${wordId}`);
