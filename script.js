@@ -13,15 +13,14 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ...весь остальной код Первой части, который мы собирали в прошлом сообщении...
 
+
 let currentLanguage = 'en'; 
 let activeTopicId = null;    
 let availableVoices = [];    
 
-// Глобальная переменная для хранения вошедшего пользователя
 let currentUser = localStorage.getItem('dictionary_logged_user') || null;
 let appData = { en: [], et: [] };
 
-// Стартовые папки по умолчанию для новых пользователей
 const defaultAppData = {
     en: [
         {
@@ -36,26 +35,51 @@ const defaultAppData = {
     et: []
 };
 
-// СОХРАНЕНИЕ: Пишет данные пользователя в локальную память браузера
-function saveData() {
+// СУПЕР-СОХРАНЕНИЕ: Отправляет измененные слова напрямую в твою таблицу user_dictionaries
+async function saveData() {
     if (!currentUser) return;
-    localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
-    localStorage.setItem('my_dictionary_current_lang', currentLanguage);
-}
+    
+    try {
+        const { error } = await supabase
+            .from('user_dictionaries')
+            .update({ appData: appData })
+            .eq('username', currentUser);
 
-// ЗАГРУЗКА: Читает данные из памяти браузера
-function loadData() {
-    if (!currentUser) return;
-    const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
-    if (backup) {
-        appData = JSON.parse(backup);
-    } else {
-        appData = JSON.parse(JSON.stringify(defaultAppData));
-        saveData();
+        if (error) throw error;
+        localStorage.setItem('my_dictionary_current_lang', currentLanguage);
+    } catch (error) {
+        console.error("Ошибка сохранения в облако Supabase:", error);
     }
 }
-// ФУНКЦИЯ 1: СТРОГО ВХОД В АККАУНТ
-function handleLoginOnly() {
+
+// СУПЕР-ЗАГРУЗКА: Скачивает слова из таблицы user_dictionaries при входе
+async function loadData() {
+    if (!currentUser) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('user_dictionaries')
+            .select('appData')
+            .eq('username', currentUser)
+            .single();
+
+        if (error) throw error;
+        
+        // [ЗАЩИТА]: Если в облаке пусто или профиль новый, дарим стартовую структуру
+        if (data && data.appData && (data.appData.en || data.appData.et)) {
+            appData = data.appData;
+        } else {
+            appData = JSON.parse(JSON.stringify(defaultAppData));
+            await saveData(); // Сразу прописываем структуру в облако
+        }
+    } catch (error) {
+        console.error("Ошибка загрузки данных из Supabase, берем стандартные:", error);
+        appData = JSON.parse(JSON.stringify(defaultAppData));
+    }
+}
+
+// ФУНКЦИЯ 1: ЧИСТЫЙ ВХОД В ПРОФИЛЬ ЧЕРЕЗ ОБЛАКО
+async function handleLoginOnly() {
     const userInput = document.getElementById('authUsername');
     const passInput = document.getElementById('authPassword');
     const errorBlock = document.getElementById('authError');
@@ -71,36 +95,52 @@ function handleLoginOnly() {
         return;
     }
 
-    // Ищем аккаунт в памяти
-    const savedPassword = localStorage.getItem('local_user_pass_' + username);
-    
-    if (!savedPassword) {
-        errorBlock.style.color = '#ef4444';
-        errorBlock.innerText = "Логин не найден! Сначала нажмите 'Регистрация'.";
-        return;
-    }
+    try {
+        const { data, error } = await supabase
+            .from('user_dictionaries')
+            .select('*')
+            .eq('username', username)
+            .single();
 
-    if (savedPassword !== password) {
-        errorBlock.style.color = '#ef4444';
-        errorBlock.innerText = "Неверный пароль!";
-        return;
-    }
+        if (error || !data) {
+            errorBlock.style.color = '#ef4444';
+            errorBlock.innerText = "Пользователь с таким логином не найден!";
+            return;
+        }
 
-    // Успешный вход
-    currentUser = username;
-    localStorage.setItem('dictionary_logged_user', currentUser);
-    
-    const infoText = document.getElementById('userInfoText');
-    if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
-    
-    document.getElementById('authScreen').style.display = 'none';
-    document.getElementById('mainScreen').style.display = 'block';
-    
-    initApp();
+        if (data.password !== password) {
+            errorBlock.style.color = '#ef4444';
+            errorBlock.innerText = "Неверный пароль!";
+            return;
+        }
+
+        currentUser = username;
+        localStorage.setItem('dictionary_logged_user', currentUser);
+        
+        // [ЗАЩИТА]: Проверяем скачанные слова на пустоту
+        if (data.appData && (data.appData.en || data.appData.et)) {
+            appData = data.appData;
+        } else {
+            appData = JSON.parse(JSON.stringify(defaultAppData));
+            // Мягко отправляем стартовую структуру, чтобы зафиксировать в базе
+            await supabase.from('user_dictionaries').update({ appData: appData }).eq('username', currentUser);
+        }
+        
+        const infoText = document.getElementById('userInfoText');
+        if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
+        
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('mainScreen').style.display = 'block';
+        
+        initApp();
+    } catch (err) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Ошибка входа! Логин занят или база настраивается.";
+    }
 }
 
-// ФУНКЦИЯ 2: СТРОГО РЕГИСТРАЦИЯ НОВОГО АККАУНТА
-function handleRegisterOnly() {
+// ФУНКЦИЯ 2: ЧИСТАЯ РЕГИСТРАЦИЯ НОВОГО ПРОФИЛЯ В ОБЛАКЕ
+async function handleRegisterOnly() {
     const userInput = document.getElementById('authUsername');
     const passInput = document.getElementById('authPassword');
     const errorBlock = document.getElementById('authError');
@@ -122,23 +162,39 @@ function handleRegisterOnly() {
         return;
     }
 
-    // Проверяем, не занят ли логин
-    const existing = localStorage.getItem('local_user_pass_' + username);
-    if (existing) {
-        errorBlock.style.color = '#ef4444';
-        errorBlock.innerText = "Этот логин уже занят!";
-        return;
-    }
+    try {
+        const { data: existingUser } = await supabase
+            .from('user_dictionaries')
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
 
-    // Создаем аккаунт локально
-    localStorage.setItem('local_user_pass_' + username, password);
-    
-    errorBlock.style.color = '#10b981'; // Зелёный текст успеха
-    errorBlock.innerText = `🎉 Аккаунт "${username}" создан! Нажмите "Войти"`;
-    passInput.value = '';
+        if (existingUser) {
+            errorBlock.style.color = '#ef4444';
+            errorBlock.innerText = "Этот логин уже занят! Придумайте другой.";
+            return;
+        }
+
+        // При регистрации сразу кладем чистую заготовку словаря
+        const { error } = await supabase
+            .from('user_dictionaries')
+            .insert([{ 
+                username: username, 
+                password: password, 
+                appData: { en: [], et: [] } 
+            }]);
+
+        if (error) throw error;
+
+        errorBlock.style.color = '#10b981'; 
+        errorBlock.innerText = `🎉 Аккаунт "${username}" создан! Теперь нажмите "Войти"`;
+        passInput.value = '';
+    } catch (err) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Не удалось зарегистрироваться в облаке.";
+    }
 }
 
-// ФУНКЦИЯ 3: ВЫХОД ИЗ ПРОФИЛЯ
 function handleLogout() {
     currentUser = null;
     localStorage.removeItem('dictionary_logged_user');
@@ -152,8 +208,7 @@ function handleLogout() {
     document.getElementById('mainScreen').style.display = 'none';
 }
 
-// Проверка сессии при загрузке страницы
-function checkSession() {
+async function checkSession() {
     const savedLang = localStorage.getItem('my_dictionary_current_lang');
     if (savedLang) currentLanguage = savedLang;
 
@@ -164,6 +219,7 @@ function checkSession() {
         const infoText = document.getElementById('userInfoText');
         if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
         
+        await loadData(); 
         initApp();
     } else {
         document.getElementById('authScreen').style.display = 'block';
@@ -171,12 +227,6 @@ function checkSession() {
     }
 }
 
-let mediaRecorder = null;
-let audioChunks = [];
-let recordingWordId = null;
-let wordTimeout = null;
-let countdownInterval = null;
-let isTraining = false;
 // ========================================================
 // 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
 // ========================================================
