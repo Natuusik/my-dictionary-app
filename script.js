@@ -10,6 +10,21 @@ let availableVoices = [];
 let currentUser = localStorage.getItem('dictionary_logged_user') || null;
 let appData = { en: [], et: [] };
 
+// Базовые стартовые папки на случай, если у нового пользователя ещё ничего нет
+const defaultAppData = {
+    en: [
+        {
+            id: 1,
+            name: "🔥 Глаголы",
+            words: [
+                { id: 101, foreign: "abilities", russian: "способности", customAudio: null },
+                { id: 102, foreign: "environment", russian: "окружающая среда", customAudio: null }
+            ]
+        }
+    ],
+    et: []
+};
+
 // ФУНКЦИЯ СОХРАНЕНИЯ: Отправляет изменения на сервер конкретному пользователю
 async function saveData() {
     if (!currentUser) return;
@@ -24,13 +39,36 @@ async function saveData() {
             })
         });
         localStorage.setItem('my_dictionary_current_lang', currentLanguage);
+        // Дополнительно страхуемся в локальной памяти устройства
+        localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
     } catch (error) {
         console.error("Ошибка отправки данных на сервер:", error);
     }
 }
 
-// ФУНКЦИЯ ВХОДА И РЕГИСТРАЦИИ
-async function handleAuth() {
+// [ИСПРАВЛЕНО]: Восстановленная функция загрузки данных, которую требовал initApp()!
+async function loadData() {
+    if (!currentUser) return;
+    try {
+        const response = await fetch('/api/data');
+        const result = await response.json();
+
+        if (result.status === "success" && result.data) {
+            appData = result.data;
+        } else {
+            // Если сервер выдал пустоту, проверяем локальный бэкап устройства
+            const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
+            appData = backup ? JSON.parse(backup) : JSON.parse(JSON.stringify(defaultAppData));
+        }
+    } catch (error) {
+        console.error("Ошибка загрузки, берем локальный бэкап:", error);
+        const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
+        appData = backup ? JSON.parse(backup) : JSON.parse(JSON.stringify(defaultAppData));
+    }
+}
+
+// [ИСПРАВЛЕНО]: Функция строго для входа в существующий аккаунт
+async function handleLoginOnly() {
     const userInput = document.getElementById('authUsername');
     const passInput = document.getElementById('authPassword');
     const errorBlock = document.getElementById('authError');
@@ -41,7 +79,7 @@ async function handleAuth() {
     const password = passInput.value.trim();
     
     if (!username || !password) {
-        if (errorBlock) errorBlock.innerText = "Заполните все поля!";
+        if (errorBlock) errorBlock.innerText = "Введите и логин, и пароль!";
         return;
     }
 
@@ -55,23 +93,88 @@ async function handleAuth() {
         const result = await response.json();
         
         if (response.ok && result.success) {
-            // Запоминаем пользователя в браузере
             currentUser = result.user;
             localStorage.setItem('dictionary_logged_user', currentUser);
-            appData = result.appData;
+            appData = result.appData || { en: [], et: [] };
             
-            // Прячем окно входа, открываем сайт
+            const infoText = document.getElementById('userInfoText');
+            if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
+            
             document.getElementById('authScreen').style.display = 'none';
             document.getElementById('mainScreen').style.display = 'block';
             
-            // Запускаем отрисовку
             initApp();
         } else {
-            if (errorBlock) errorBlock.innerText = result.error || "Ошибка авторизации";
+            if (errorBlock) errorBlock.innerText = result.error || "Неверный логин или пароль!";
         }
     } catch (err) {
-        if (errorBlock) errorBlock.innerText = "Сервер недоступен. Запустите бэкенд!";
+        if (errorBlock) errorBlock.innerText = "Сервер недоступен. Проверьте vercel.json!";
     }
+}
+
+// [ИСПРАВЛЕНО]: Функция строго для регистрации нового аккаунта
+async function handleRegisterOnly() {
+    const userInput = document.getElementById('authUsername');
+    const passInput = document.getElementById('authPassword');
+    const errorBlock = document.getElementById('authError');
+    
+    if (!userInput || !passInput) return;
+    
+    const username = userInput.value.trim();
+    const password = passInput.value.trim();
+    
+    if (!username || !password) {
+        if (errorBlock) errorBlock.innerText = "Заполните поля для регистрации!";
+        return;
+    }
+
+    if (password.length < 4) {
+        if (errorBlock) errorBlock.innerText = "Пароль должен быть от 4 символов!";
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            if (result.message && result.message.includes('Новый аккаунт')) {
+                if (errorBlock) {
+                    errorBlock.style.color = '#10b981'; // зелёный текст успеха
+                    errorBlock.innerText = `🎉 Профиль "${username}" создан! Нажмите кнопку "Войти"`;
+                }
+                passInput.value = '';
+            } else {
+                if (errorBlock) {
+                    errorBlock.style.color = '#ef4444';
+                    errorBlock.innerText = "Этот логин уже занят другим человеком!";
+                }
+            }
+        } else {
+            if (errorBlock) errorBlock.innerText = result.error || "Ошибка регистрации";
+        }
+    } catch (err) {
+        if (errorBlock) errorBlock.innerText = "Сервер недоступен!";
+    }
+}
+
+// Функция выхода из личного кабинета
+function handleLogout() {
+    currentUser = null;
+    localStorage.removeItem('dictionary_logged_user');
+    appData = { en: [], et: [] };
+    activeTopicId = null;
+    
+    const contentBlock = document.getElementById('folderContentBlock');
+    if (contentBlock) contentBlock.style.display = 'none';
+    
+    document.getElementById('authScreen').style.display = 'block';
+    document.getElementById('mainScreen').style.display = 'none';
 }
 
 // Проверка сессии при загрузке страницы
@@ -79,12 +182,17 @@ function checkSession() {
     const savedLang = localStorage.getItem('my_dictionary_current_lang');
     if (savedLang) currentLanguage = savedLang;
 
-    // Если пользователь уже входил ранее на этом устройстве, мы не запрашиваем пароль заново
     if (currentUser) {
         document.getElementById('authScreen').style.display = 'none';
         document.getElementById('mainScreen').style.display = 'block';
         
-        // Быстро запрашиваем у сервера актуальные слова
+        const infoText = document.getElementById('userInfoText');
+        if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
+        
+        // [ИСПРАВЛЕНО]: При авто-входе сначала подтягиваем бэкап, чтобы экран не мигал пустым
+        const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
+        if (backup) appData = JSON.parse(backup);
+        
         fetch('/api/auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -92,15 +200,16 @@ function checkSession() {
         })
         .then(res => res.json())
         .then(result => {
-            if (result.success) appData = result.appData;
+            if (result.success && result.appData) {
+                appData = result.appData;
+                localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
+            }
             initApp();
         })
         .catch(() => {
-            // Если локальный сервер пока не запущен, берем пустую структуру
             initApp();
         });
     } else {
-        // Если пользователя нет — показываем окно входа
         document.getElementById('authScreen').style.display = 'block';
         document.getElementById('mainScreen').style.display = 'none';
     }
@@ -113,116 +222,10 @@ let wordTimeout = null;
 let countdownInterval = null;
 let isTraining = false;
 
-// ========================================================
-// ФУНКЦИЯ 1: СТРОГО ВХОД В СУЩЕСТВУЮЩИЙ АККАУНТ
-async function handleLoginOnly() {
-    const userInput = document.getElementById('authUsername');
-    const passInput = document.getElementById('authPassword');
-    const errorBlock = document.getElementById('authError');
-    
-    if (!userInput || !passInput) return;
-    
-    const username = userInput.value.trim();
-    const password = passInput.value.trim();
-    
-    if (!username || !password) {
-        if (errorBlock) errorBlock.style.color = '#ef4444';
-        if (errorBlock) errorBlock.innerText = "Введите и логин, и пароль!";
-        return;
-    }
 
-    try {
-        // Мы отправляем запрос на роут авторизации /api/auth (или /api/auth/login в зависимости от бэкенда)
-        const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            currentUser = result.user;
-            localStorage.setItem('dictionary_logged_user', currentUser);
-            appData = result.appData;
-            
-            const infoText = document.getElementById('userInfoText');
-            if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
-            
-            document.getElementById('authScreen').style.display = 'none';
-            document.getElementById('mainScreen').style.display = 'block';
-            
-            initApp();
-        } else {
-            if (errorBlock) errorBlock.style.color = '#ef4444';
-            if (errorBlock) errorBlock.innerText = result.error || "Логин не найден или пароль неверен!";
-        }
-    } catch (err) {
-        if (errorBlock) errorBlock.style.color = '#ef4444';
-        if (errorBlock) errorBlock.innerText = "Сервер бэкенда недоступен!";
-    }
-}
-
-// ФУНКЦИЯ 2: СТРОГО РЕГИСТРАЦИЯ НОВОГО АККАУНТА
-async function handleRegisterOnly() {
-    const userInput = document.getElementById('authUsername');
-    const passInput = document.getElementById('authPassword');
-    const errorBlock = document.getElementById('authError');
-    
-    if (!userInput || !passInput) return;
-    
-    const username = userInput.value.trim();
-    const password = passInput.value.trim();
-    
-    if (!username || !password) {
-        if (errorBlock) errorBlock.style.color = '#ef4444';
-        if (errorBlock) errorBlock.innerText = "Заполните поля для создания аккаунта!";
-        return;
-    }
-
-    // Если пароль слишком короткий, предупреждаем пользователя
-    if (password.length < 4) {
-        if (errorBlock) errorBlock.style.color = '#ef4444';
-        if (errorBlock) errorBlock.innerText = "Пароль должен быть не менее 4 символов!";
-        return;
-    }
-
-    try {
-        // Если мы переписали сервер под раздельный роут, шлём на /api/auth/register, 
-        // Если сервер старый (из users_db.json), он сам поймет, что это новый юзер при отправке данных
-        const response = await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            // Проверяем, создал ли сервер новый профиль или просто зашёл в старый
-            if (result.message && result.message.includes('Новый аккаунт')) {
-                if (errorBlock) errorBlock.style.color = '#10b981'; // зелёный цвет успеха
-                if (errorBlock) errorBlock.innerText = `🎉 Аккаунт "${username.toLowerCase()}" успешно создан! Нажмите кнопку "Войти"`;
-                
-                // Очищаем поле пароля, чтобы пользователь ввёл его осознанно для входа
-                passInput.value = '';
-            } else {
-                // Если аккаунт уже существовал в старой базе данных
-                if (errorBlock) errorBlock.style.color = '#ef4444';
-                if (errorBlock) errorBlock.innerText = "Этот логин уже занят! Придумайте другой.";
-            }
-        } else {
-            if (errorBlock) errorBlock.style.color = '#ef4444';
-            if (errorBlock) errorBlock.innerText = result.error || "Не удалось создать аккаунт";
-        }
-    } catch (err) {
-        if (errorBlock) errorBlock.style.color = '#ef4444';
-        if (errorBlock) errorBlock.innerText = "Сервер недоступен!";
-    }
-}
 
 // ========================================================
-// 3. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
+// 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
 // ========================================================
 
 async function switchLanguage(lang) {
@@ -315,8 +318,9 @@ async function renameActiveTopic() {
         renderTopics(); 
     }
 }
+
 // ========================================================
-// 4.1. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
+// 3. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
 // ========================================================
 
 function populateVoiceList() {
@@ -411,10 +415,12 @@ function loadTrainerSettings() {
     const speedInput = document.getElementById('speedRangeNew');
     const pauseInput = document.getElementById('pauseRangeNew');
     const modeSelect = document.getElementById('modeSelectNew');
+    const voiceSelect = document.getElementById('voiceSelectNew'); // [ИСПРАВЛЕНО] Находим инпут роботов
 
     const savedSpeed = localStorage.getItem('trainer_saved_speed');
     const savedPause = localStorage.getItem('trainer_saved_pause');
     const savedMode = localStorage.getItem('trainer_saved_mode');
+    const savedVoice = localStorage.getItem('trainer_saved_voice'); // [ИСПРАВЛЕНО] Берем робота из памяти
 
     if (savedSpeed && speedInput) {
         speedInput.value = savedSpeed;
@@ -429,6 +435,10 @@ function loadTrainerSettings() {
     if (savedMode && modeSelect) {
         modeSelect.value = savedMode;
     }
+    // [ИСПРАВЛЕНО] Принудительно выставляем сохраненного робота на экран
+    if (savedVoice && voiceSelect && voiceSelect.querySelector(`option[value="${savedVoice}"]`)) {
+        voiceSelect.value = savedVoice;
+    }
 }
 
 document.addEventListener("change", (e) => {
@@ -441,8 +451,10 @@ document.addEventListener("input", (e) => {
         saveTrainerSettings(); 
     }
 });
+
+
 // ========================================================
-// 4.2. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// 4. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ========================================================
 
 function toggleTraining() {
@@ -613,19 +625,9 @@ function nextTrainingStep() {
 function handleSmartOfflineInput(text) {}
 
 function initApp() {
-    loadData();
     loadTrainerSettings(); 
     switchLanguage(currentLanguage);
-    
-    if (currentUser) {
-        const infoText = document.getElementById('userInfoText');
-        if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
-    }
 }
 
-// ПРОВЕРКА СЕССИИ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
-
-
-// Автозапуск
-initApp();
+// Единственная правильная точка старта. Сначала сессия, потом initApp!
 checkSession();
