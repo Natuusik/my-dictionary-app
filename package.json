@@ -1,10 +1,11 @@
 {
   "name": "my-dictionary-app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Словарь с личными профилями на Vercel",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "vercel-build": "echo 'Билд завершен успешно!'"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

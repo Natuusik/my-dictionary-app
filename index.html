@@ -2,35 +2,40 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Лингво-Тренажёр по темам</title>
-    <!-- Подключаем стили -->
+    <title>Мой Словарь</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- ПОДКЛЮЧАЕМ ОФИЦИАЛЬНУЮ БИБЛИОТЕКУ SUPABASE В САМОМ НАЧАЛЕ СТРАНИЦЫ -->
+<script src="supabase.js"></script>
+
+
 </head>
+
 <body>
-
-    <div class="container">
-        <h1>🎧 Умный Языковой Тренажёр</h1>
-        
-        <!-- ======================================================= -->
-        <!-- НОВЫЙ БЛОК: ОКНО АВТОРИЗАЦИИ (ВХОД / РЕГИСТРАЦИЯ) -->
-        <!-- ======================================================= -->
-        <div id="authScreen" class="card" style="margin-bottom: 20px;">
-            <h2 class="section-title" id="authTitle">🔐 Вход в личный кабинет</h2>
-            <div class="add-word-form" style="display: flex; flex-direction: column; gap: 10px;">
-                <input type="text" id="authUsername" placeholder="Ваш логин">
-                <input type="password" id="authPassword" placeholder="Ваш пароль">
-                
-                <div style="display: flex; gap: 10px; margin-top: 5px;">
-                    <button class="btn-action" style="flex: 1; background: #3b82f6;" onclick="handleAuth('login')">Войти</button>
-                    <button class="btn-action" style="flex: 1; background: #64748b;" onclick="handleAuth('register')">Регистрация</button>
-                </div>
-                <p id="authMessage" style="text-align: center; font-size: 14px; font-weight: bold; margin: 5px 0 0 0;"></p>
+     <!-- ЭКРАН 0: АВТОРИЗАЦИЯ (ВХОД ИЛИ РЕГИСТРАЦИЯ) -->
+    <div id="authScreen" class="container" style="max-width: 400px; margin-top: 50px; text-align: center; display: block;">
+        <h1>🔐 Личный кабинет</h1>
+        <div class="card" style="padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">Войдите в свой профиль или зарегистрируйте новый аккаунт, чтобы сохранять слова.</p>
+            
+            <input type="text" id="authUsername" placeholder="Ваш логин (например: natalia)" style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box;">
+            <input type="password" id="authPassword" placeholder="Ваш пароль" style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #cbd5e1; box-sizing: border-box;">
+            
+            <!-- ДВЕ РАЗДЕЛЬНЫЕ КНОПКИ -->
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button onclick="handleLoginOnly()" style="flex: 1; padding: 12px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">Войти</button>
+                <button onclick="handleRegisterOnly()" style="flex: 1; padding: 12px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">Регистрация</button>
             </div>
+            
+            <div id="authError" style="color: #ef4444; font-size: 13px; margin-top: 10px; font-weight: 500;"></div>
         </div>
+    </div>
 
+
+
+        
+    
         <!-- ЭКРАН 1: НАСТРОЙКИ, ПАПКИ И СЛОВАРЬ (ГЛАВНЫЙ ЭКРАН) -->
-        <!-- ИСПРАВЛЕНО: изначально скрыт (style="display: none;"), пока пользователь не войдет -->
         <div id="mainScreen" style="display: none;">
             
             <!-- Информационная панель пользователя с кнопкой Выйти -->
@@ -124,6 +129,8 @@
     </div>
 
     <!-- Подключаем логику скрипта -->
-    <script src="script.js"></script>
+  <script src="script.js?v=2"></script>
+
+
 </body>
 </html>
