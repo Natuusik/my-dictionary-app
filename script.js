@@ -296,13 +296,18 @@ function renderWords() {
         const item = document.createElement('div');
         item.className = 'word-item';
         
+        // Кнопка меняет текст в зависимости от наличия записи
         const hasVoice = w.customAudio ? '🔊 Послушать' : '🎙 Записать';
+        
+        // [НОВОЕ]: Если запись есть, выводим дополнительную кнопку перезаписи 🔄
+        const retryButton = w.customAudio ? `<button class="btn-mic" style="background: #e2e8f0; color: #475569; margin-right: 5px;" onclick="resetVoice(${w.id})">🔄 Перезаписать</button>` : '';
 
         item.innerHTML = `
             <div style="text-align: left;">
                 <strong>${w.foreign}</strong> — <span style="color:#64748b;">${w.russian}</span>
             </div>
             <div class="word-actions">
+                ${retryButton}
                 <button class="btn-mic" id="mic-btn-${w.id}" onclick="handleVoiceAction(${w.id})">${hasVoice}</button>
                 <button class="btn-delete-word" onclick="deleteWord(${w.id})">🗑️</button>
             </div>
@@ -350,25 +355,14 @@ function deleteWord(wordId) {
     }
 }
 
-function handleVoiceAction(wordId) {
+// [НОВОЕ]: Функция сброса аудио для возможности перезаписи
+function resetVoice(wordId) {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     const word = topic ? topic.words.find(w => w.id === wordId) : null;
-    
-    if (word && word.customAudio) {
-        const audio = new Audio(word.customAudio);
-        audio.play();
-    } else {
-        toggleRecord(wordId);
-    }
-}
-// [ДОБАВИТЬ ЭТИ ДВЕ ФУНКЦИИ ПЕРЕД toggleRecord]
-
-function deleteWord(wordId) {
-    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
-    if (topic) {
-        topic.words = topic.words.filter(w => w.id !== wordId);
-        saveData(); 
-        renderWords();
+    if (word) {
+        word.customAudio = null; // Стираем старый звук
+        saveData();
+        renderWords(); // Перерисовываем список, чтобы кнопка снова стала "🎙 Записать"
     }
 }
 
@@ -377,14 +371,28 @@ function handleVoiceAction(wordId) {
     const word = topic ? topic.words.find(w => w.id === wordId) : null;
     
     if (word && word.customAudio) {
+        const btn = document.getElementById(`mic-btn-${wordId}`);
+        if (btn) {
+            btn.innerText = "🎵 Воспроизведение...";
+            btn.style.background = "#3b82f6"; // Меняет цвет на синий во время проигрывания
+        }
+
         const audio = new Audio(word.customAudio);
         audio.play();
+
+        // [ИСПРАВЛЕНО]: Как только аудиофайл доиграл до конца, кнопка САМА возвращается в норму
+        audio.onended = function() {
+            if (btn) {
+                btn.innerText = "🔊 Послушать";
+                btn.style.background = ""; // Возвращаем стандартный цвет из CSS
+            }
+        };
     } else {
         toggleRecord(wordId);
     }
 }
 
-// [ОБНОВЛЕНО]: Студийная запись голоса с шумоподавлением и эхоподавлением
+// Студийная запись голоса с шумоподавлением и эхоподавлением
 async function toggleRecord(wordId) {
     const btn = document.getElementById(`mic-btn-${wordId}`);
     if (!btn) return;
@@ -394,14 +402,13 @@ async function toggleRecord(wordId) {
         audioChunks = [];
         
         try {
-            // Запрашиваем микрофон со встроенными ИИ-фильтрами очистки звука
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
-                    echoCancellation: true,    // Подавление эха от динамиков
-                    noiseSuppression: true,    // Полное глушение фонового шума и шипения
-                    autoGainControl: true,     // Авто-выравнивание громкости (чтобы не было тихо)
-                    channelCount: 1,           // Моно-канал для чёткости речи
-                    sampleRate: 44100          // Высокая частота дискретизации (студийный стандарт)
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1,
+                    sampleRate: 44100
                 } 
             });
             
@@ -440,6 +447,7 @@ async function toggleRecord(wordId) {
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
 }
+
 
 // ========================================================
 // 4. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
