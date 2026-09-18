@@ -44,36 +44,28 @@
             <button class="tab-btn" id="tab-et" onclick="switchLanguage('et')">Эстонский 🇪🇪</button>
         </div>
 
-        <!-- [ПЕРЕНЕСЕНО НАВЕРХ]: Общая карточка настроек аудио-тренировки (доступна на любой вкладке языка) -->
-        <div class="card" style="margin-top: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-            <h2 class="section-title" style="margin-top: 0;">⚙️ Настройки аудио-тренажёра:</h2>
+        <!-- [ПЕРЕНЕСЕНО НАВЕРХ]: Карточка настроек аудио-тренировки с исправленным выравниванием линий -->
+        <div class="card" style="margin-top: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px;">
+            <h2 class="section-title" style="margin-top: 0; margin-bottom: 20px;">⚙️ Настройки аудио-тренажёра:</h2>
             
-            <div style="margin-bottom: 12px;">
-                <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">Направление тренировки:</label>
-                <select id="modeSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
+            <div style="margin-bottom: 18px;">
+                <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 8px; color: #334155;">Направление тренировки:</label>
+                <select id="modeSelectNew" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; font-size: 14px;">
                     <option value="foreign-ru">Иностранный ➡️ Русский</option>
                     <option value="ru-foreign">Русский ➡️ Иностранный</option>
                 </select>
             </div>
             
-            <!-- ПОДБОР РОБОТА ОЗВУЧКИ 
-            <div style="margin-bottom: 12px;">
-                <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">🤖 Выбор робота озвучки (для англ/рус):</label>
-                <select id="voiceSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
-                    <option value="default">Загрузка голосов...</option>
-                </select>
-            </div>
-            -->
             <!-- ПОЛЗУНОК 1: Скорость речи -->
-            <div style="margin-bottom: 12px;">
-                <label for="speedRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">🐢 Скорость речи: <span id="speedValue">1.0</span>x</label>
-                <input type="range" id="speedRangeNew" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('speedValue').innerText = this.value">
+            <div style="margin-bottom: 18px;">
+                <label for="speedRangeNew" style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-bottom: 5px;">🐢 Скорость речи: <span id="speedValue" style="color: #2563eb;">1.0</span>x</label>
+                <input type="range" id="speedRangeNew" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 100%; display: block; margin: 0; cursor: pointer;" oninput="document.getElementById('speedValue').innerText = this.value">
             </div>
             
             <!-- ПОЛЗУНОК 2: Перерыв (пауза) между словами -->
-            <div style="margin-bottom: 15px;">
-                <label for="pauseRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">⏱️ Время на размышление: <span id="pauseValue">3</span> сек</label>
-                <input type="range" id="pauseRangeNew" min="1" max="10" step="1" value="3" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('pauseValue').innerText = this.value">
+            <div style="margin-bottom: 10px;">
+                <label for="pauseRangeNew" style="font-size: 14px; font-weight: bold; color: #475569; display: block; margin-bottom: 5px;">⏱️ Время на размышление: <span id="pauseValue" style="color: #2563eb;">3</span> сек</label>
+                <input type="range" id="pauseRangeNew" min="1" max="10" step="1" value="3" style="width: 100%; display: block; margin: 0; cursor: pointer;" oninput="document.getElementById('pauseValue').innerText = this.value">
             </div>
         </div>
 
