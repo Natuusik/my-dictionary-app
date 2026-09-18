@@ -2,14 +2,11 @@
 // 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ОБЛАЧНОЙ БАЗЫ SUPABASE
 // ========================================================
 
-const SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; // Полная ссылка из твоей строки
-const SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; // Твой длинный ключ из второй строки
+const SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; 
+const SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; 
 
-
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-
-// ...весь остальной код Первой части, который мы собирали в прошлом сообщении...
-
+// ЖЕЛЕЗОБЕТОННЫЙ ВАРИАНТ ДЛЯ ЦЕПОЧКИ UNPKG БЕЗ ОШИБОК БРАУЗЕРА:
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentLanguage = 'en'; 
 let activeTopicId = null;    
@@ -17,6 +14,7 @@ let availableVoices = [];
 
 let currentUser = localStorage.getItem('dictionary_logged_user') || null;
 let appData = { en: [], et: [] };
+
 
 const defaultAppData = {
     en: [
