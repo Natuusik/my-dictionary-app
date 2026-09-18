@@ -384,6 +384,7 @@ function handleVoiceAction(wordId) {
     }
 }
 
+// [ОБНОВЛЕНО]: Студийная запись голоса с шумоподавлением и эхоподавлением
 async function toggleRecord(wordId) {
     const btn = document.getElementById(`mic-btn-${wordId}`);
     if (!btn) return;
@@ -392,38 +393,54 @@ async function toggleRecord(wordId) {
         recordingWordId = wordId;
         audioChunks = [];
         
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        
-        mediaRecorder.ondataavailable = event => {
-            audioChunks.push(event.data);
-        };
-        
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            const reader = new FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = function() {
-                const base64Audio = reader.result;
-                const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
-                const word = topic ? topic.words.find(w => w.id === recordingWordId) : null;
-                
-                if (word) {
-                    word.customAudio = base64Audio; 
-                    saveData();                    
-                    renderWords();                 
-                }
+        try {
+            // Запрашиваем микрофон со встроенными ИИ-фильтрами очистки звука
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,    // Подавление эха от динамиков
+                    noiseSuppression: true,    // Полное глушение фонового шума и шипения
+                    autoGainControl: true,     // Авто-выравнивание громкости (чтобы не было тихо)
+                    channelCount: 1,           // Моно-канал для чёткости речи
+                    sampleRate: 44100          // Высокая частота дискретизации (студийный стандарт)
+                } 
+            });
+            
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
             };
-        };
-        
-        mediaRecorder.start();
-        btn.innerText = "🛑 Стоп";
-        btn.style.background = "#ef4444";
+            
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = function() {
+                    const base64Audio = reader.result;
+                    const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
+                    const word = topic ? topic.words.find(w => w.id === recordingWordId) : null;
+                    
+                    if (word) {
+                        word.customAudio = base64Audio; 
+                        saveData();                    
+                        renderWords();                 
+                    }
+                };
+            };
+            
+            mediaRecorder.start();
+            btn.innerText = "🛑 Стоп";
+            btn.style.background = "#ef4444";
+        } catch (err) {
+            console.error("Не удалось получить доступ к микрофону:", err);
+            alert("Ошибка: Проверь, разрешён ли микрофон в замочке сайта!");
+        }
     } else {
         mediaRecorder.stop();
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
 }
+
 // ========================================================
 // 4. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
 // ========================================================
