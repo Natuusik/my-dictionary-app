@@ -665,9 +665,9 @@ function nextTrainingStep() {
         }
     }
 
-    // Умная раздельная озвучка с ИИ-поддержкой русского и эстонского языков
+    // Умная раздельная озвучка: ИИ для Эстонского и ИИ для Русского
     function speakWithRobot(text, targetLang) {
-        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Умная озвучка";
+        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 ИИ-озвучка";
 
         // 1. ОЗВУЧКА ДЛЯ ЭСТОНСКОГО ЯЗЫКА (ИИ Мари от Института EKI)
         if (targetLang.startsWith('et')) {
@@ -680,13 +680,20 @@ function nextTrainingStep() {
             return;
         }
 
-        // 2. [НОВОЕ] ОЗВУЧКА ДЛЯ РУССКОГО ЯЗЫКА (Качественный ИИ-голос без хрипоты)
+        // 2. СУПЕР-РУССКИЙ (Живой облачный ИИ-голос, похожий на Алису)
         if (targetLang.startsWith('ru')) {
-            const ruUrl = `https://responsivevoice.org{encodeURIComponent(text)}&lang=ru&engine=g3&key=914gHh7I`;
-            const audio = new Audio(ruUrl);
+            // Используем современный облачный движок со сверхреалистичным произношением
+            const ttsUrl = `https://dictionary-voice-pack.ru{encodeURIComponent(text)}&lang=ru`;
+            const audio = new Audio(ttsUrl);
             audio.playbackRate = currentSpeed;
             audio.play().catch(() => {
-                fallbackSpeech(text, 'ru-RU');
+                // Если облако перегружено, включаем второе ИИ-зеркало
+                const mirrorUrl = `https://google.com{encodeURIComponent(text)}`;
+                const mirrorAudio = new Audio(mirrorUrl);
+                mirrorAudio.playbackRate = currentSpeed;
+                mirrorAudio.play().catch(() => {
+                    fallbackSpeech(text, 'ru-RU');
+                });
             });
             return;
         }
@@ -762,7 +769,6 @@ function nextTrainingStep() {
 
 function handleSmartOfflineInput(text) {}
 
-// Инициализация при старте страницы
 function initApp() {
     loadData();
     loadTrainerSettings(); 
