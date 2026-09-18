@@ -665,46 +665,54 @@ function nextTrainingStep() {
         }
     }
 
-    // [СУПЕР-ОБНОВЛЕНИЕ]: Живой эстонский язык от Института эстонского языка (EKI)
+            // [СУПЕР-ОБНОВЛЕНИЕ]: Раздельная автоматическая озвучка для каждого языка
     function speakWithRobot(text, targetLang) {
-        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Облачная озвучка";
+        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Умная озвучка";
 
-        // Если язык эстонский, отправляем запрос на официальный живой ИИ-голос Эстонии (EKI)
-        if (targetLang.startsWith('et')) {
-            // Используем официальный открытый синтезатор EKI (голос 'mari')
+        // 1. ОЗВУЧКА ДЛЯ ЭСТОНСКОГО ЯЗЫКА (ИИ Мари от Института EKI)
+        if (targetLang.startsWith('et') || targetLang.startsWith('fi')) {
             const ekiUrl = `https://eki.ee{encodeURIComponent(text)}`;
             const audio = new Audio(ekiUrl);
             audio.playbackRate = currentSpeed;
             audio.play().catch(() => {
-                // Резервный вариант Б: Открытый европейский ИИ-синтезатор для эстонского
-                const backupUrl = `https://responsivevoice.org{encodeURIComponent(text)}&lang=et&engine=g3&key=914gHh7I`;
-                const backupAudio = new Audio(backupUrl);
-                backupAudio.playbackRate = currentSpeed;
-                backupAudio.play().catch(() => {
-                    // Если интернет пропал, включаем стандартного робота устройства
-                    fallbackSpeech(text, targetLang);
-                });
+                // Резервный вариант, если институт EKI временно недоступен
+                fallbackSpeech(text, 'et-EE');
             });
-        } else {
-            // Для английского и русского оставляем стандартных качественных роботов
-            fallbackSpeech(text, targetLang);
+            return;
         }
+
+        // 2. АВТОМАТИЧЕСКАЯ ОЗВУЧКА ДЛЯ АНГЛИЙСКОГО И РУССКОГО (Без акцента!)
+        fallbackSpeech(text, targetLang);
     }
 
-    // Базовый синтезатор речи браузера для английского и русского
+    // Встроенный синтезатор, который САМ подбирает идеального робота под нужный язык
     function fallbackSpeech(text, targetLang) {
+        if (typeof speechSynthesis === 'undefined') return;
+        
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = currentSpeed;
+
+        // Получаем все голоса, доступные на твоём текущем устройстве (компьютере/планшете)
+        const allVoices = window.speechSynthesis.getVoices();
         
-        if (selectedVoice && !voiceSelect.value.startsWith('fake-') && selectedVoice.lang.toLowerCase().startsWith(targetLang.substring(0, 2))) {
-            utterance.voice = selectedVoice;
+        // Принудительно очищаем код языка до первых 2 букв (en, ru)
+        const shortLang = targetLang.substring(0, 2).toLowerCase();
+
+        // Ищем в системе лучшего родного робота для этого конкретного слова (сначала от Google)
+        let bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && v.name.includes('Google'));
+        if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang));
+
+        // Если нашли родного робота (английского для 'en' или русского для 'ru'), отдаём ему слово
+        if (bestVoice) {
+            utterance.voice = bestVoice;
         } else {
             utterance.lang = targetLang;
         }
+
         window.speechSynthesis.speak(utterance);
     }
 
-
+    // ТАЙМЕРЫ И ШАГИ ТРЕНАЖЁРА
     if (isCustomAudioForFirstStep && randomWord.customAudio) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🎤 Звучит твой голос";
         const audio = new Audio(randomWord.customAudio);
@@ -758,4 +766,5 @@ function initApp() {
     switchLanguage(currentLanguage);
 }
 
+// ГЛАВНЫЙ СТАРТ ПРИЛОЖЕНИЯ
 checkSession();
