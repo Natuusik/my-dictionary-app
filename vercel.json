@@ -2,10 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "index.html",
       "use": "@vercel/static"
     },
@@ -16,13 +12,13 @@
     {
       "src": "style.css",
       "use": "@vercel/static"
+    },
+    {
+      "src": "supabase.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "server.js"
-    },
     {
       "src": "/script.js",
       "dest": "script.js"
@@ -30,6 +26,10 @@
     {
       "src": "/style.css",
       "dest": "style.css"
+    },
+    {
+      "src": "/supabase.js",
+      "dest": "supabase.js"
     },
     {
       "src": "/(.*)",
