@@ -1,4 +1,172 @@
 // ========================================================
+// 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ЛОКАЛЬНОЙ АВТОРИЗАЦИИ
+// ========================================================
+
+let currentLanguage = 'en'; 
+let activeTopicId = null;    
+let availableVoices = [];    
+
+// Глобальная переменная для хранения вошедшего пользователя
+let currentUser = localStorage.getItem('dictionary_logged_user') || null;
+let appData = { en: [], et: [] };
+
+// Стартовые папки по умолчанию для новых пользователей
+const defaultAppData = {
+    en: [
+        {
+            id: 1,
+            name: "🔥 Глаголы",
+            words: [
+                { id: 101, foreign: "abilities", russian: "способности", customAudio: null },
+                { id: 102, foreign: "environment", russian: "окружающая среда", customAudio: null }
+            ]
+        }
+    ],
+    et: []
+};
+
+// СОХРАНЕНИЕ: Пишет данные пользователя в локальную память браузера
+function saveData() {
+    if (!currentUser) return;
+    localStorage.setItem('my_dictionary_backup_data_' + currentUser, JSON.stringify(appData));
+    localStorage.setItem('my_dictionary_current_lang', currentLanguage);
+}
+
+// ЗАГРУЗКА: Читает данные из памяти браузера
+function loadData() {
+    if (!currentUser) return;
+    const backup = localStorage.getItem('my_dictionary_backup_data_' + currentUser);
+    if (backup) {
+        appData = JSON.parse(backup);
+    } else {
+        appData = JSON.parse(JSON.stringify(defaultAppData));
+        saveData();
+    }
+}
+// ФУНКЦИЯ 1: СТРОГО ВХОД В АККАУНТ
+function handleLoginOnly() {
+    const userInput = document.getElementById('authUsername');
+    const passInput = document.getElementById('authPassword');
+    const errorBlock = document.getElementById('authError');
+    
+    if (!userInput || !passInput || !errorBlock) return;
+    
+    const username = userInput.value.trim().toLowerCase();
+    const password = passInput.value.trim();
+    
+    if (!username || !password) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Введите и логин, и пароль!";
+        return;
+    }
+
+    // Ищем аккаунт в памяти
+    const savedPassword = localStorage.getItem('local_user_pass_' + username);
+    
+    if (!savedPassword) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Логин не найден! Сначала нажмите 'Регистрация'.";
+        return;
+    }
+
+    if (savedPassword !== password) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Неверный пароль!";
+        return;
+    }
+
+    // Успешный вход
+    currentUser = username;
+    localStorage.setItem('dictionary_logged_user', currentUser);
+    
+    const infoText = document.getElementById('userInfoText');
+    if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
+    
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
+    
+    initApp();
+}
+
+// ФУНКЦИЯ 2: СТРОГО РЕГИСТРАЦИЯ НОВОГО АККАУНТА
+function handleRegisterOnly() {
+    const userInput = document.getElementById('authUsername');
+    const passInput = document.getElementById('authPassword');
+    const errorBlock = document.getElementById('authError');
+    
+    if (!userInput || !passInput || !errorBlock) return;
+    
+    const username = userInput.value.trim().toLowerCase();
+    const password = passInput.value.trim();
+    
+    if (!username || !password) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Заполните поля для создания аккаунта!";
+        return;
+    }
+
+    if (password.length < 4) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Пароль должен быть не менее 4 символов!";
+        return;
+    }
+
+    // Проверяем, не занят ли логин
+    const existing = localStorage.getItem('local_user_pass_' + username);
+    if (existing) {
+        errorBlock.style.color = '#ef4444';
+        errorBlock.innerText = "Этот логин уже занят!";
+        return;
+    }
+
+    // Создаем аккаунт локально
+    localStorage.setItem('local_user_pass_' + username, password);
+    
+    errorBlock.style.color = '#10b981'; // Зелёный текст успеха
+    errorBlock.innerText = `🎉 Аккаунт "${username}" создан! Нажмите "Войти"`;
+    passInput.value = '';
+}
+
+// ФУНКЦИЯ 3: ВЫХОД ИЗ ПРОФИЛЯ
+function handleLogout() {
+    currentUser = null;
+    localStorage.removeItem('dictionary_logged_user');
+    appData = { en: [], et: [] }; 
+    activeTopicId = null;
+    
+    const contentBlock = document.getElementById('folderContentBlock');
+    if (contentBlock) contentBlock.style.display = 'none';
+    
+    document.getElementById('authScreen').style.display = 'block';
+    document.getElementById('mainScreen').style.display = 'none';
+}
+
+// Проверка сессии при загрузке страницы
+function checkSession() {
+    const savedLang = localStorage.getItem('my_dictionary_current_lang');
+    if (savedLang) currentLanguage = savedLang;
+
+    if (currentUser) {
+        document.getElementById('authScreen').style.display = 'none';
+        document.getElementById('mainScreen').style.display = 'block';
+        
+        const infoText = document.getElementById('userInfoText');
+        if (infoText) infoText.innerText = `👤 Аккаунт: ${currentUser}`;
+        
+        initApp();
+    } else {
+        document.getElementById('authScreen').style.display = 'block';
+        document.getElementById('mainScreen').style.display = 'none';
+    }
+}
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingWordId = null;
+let wordTimeout = null;
+let countdownInterval = null;
+let isTraining = false;
+// ========================================================
 // 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
 // ========================================================
 
@@ -361,7 +529,7 @@ document.addEventListener("input", (e) => {
     }
 });
 // ========================================================
-// 4.1. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// 5. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ========================================================
 
 function toggleTraining() {
@@ -372,7 +540,6 @@ function toggleTraining() {
     }
 }
 
-// ФУНКЦИЯ: Старт тренировки
 function startTraining() {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     
@@ -396,7 +563,6 @@ function startTraining() {
     nextTrainingStep(); 
 }
 
-// ФУНКЦИЯ: Остановка тренировки
 function stopTraining() {
     isTraining = false;
     clearTimeout(wordTimeout);
@@ -539,5 +705,5 @@ function initApp() {
     switchLanguage(currentLanguage);
 }
 
-// Запуск сессии при загрузке страницы
+// ЗАПУСК СЕССИИ И ИНИЦИАЛИЗАЦИЯ ВСЕГО ПРИЛОЖЕНИЯ
 checkSession();
