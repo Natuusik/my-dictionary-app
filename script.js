@@ -179,12 +179,14 @@ function switchLanguage(lang) {
     if (tabEn) tabEn.classList.toggle('active', lang === 'en');
     if (tabEt) tabEt.classList.toggle('active', lang === 'et');
     
+    // Прячем только блок со словами темы, так как тема ещё не выбрана
     const contentBlock = document.getElementById('folderContentBlock');
     if (contentBlock) contentBlock.style.display = 'none';
     
     saveData();     
     renderTopics(); 
 }
+
 
 function renderTopics() {
     const container = document.getElementById('topicsContainer');
@@ -551,7 +553,7 @@ document.addEventListener("input", (e) => {
     }
 });
 // ========================================================
-// 5. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// 4.1. ЛОГИКА ТРЕНАЖЁРА И УЛУЧШЕННАЯ ОЗВУЧКА
 // ========================================================
 
 function toggleTraining() {
@@ -632,7 +634,8 @@ function nextTrainingStep() {
 
     if (currentMode === 'foreign-ru') {
         firstSpeechText = randomWord.foreign;
-        firstSpeechLang = currentLanguage === 'en' ? 'en-US' : 'fi-FI'; 
+        // [ИСПРАВЛЕНО]: Меняем fi-FI на чистый эстонский et-EE
+        firstSpeechLang = currentLanguage === 'en' ? 'en-US' : 'et-EE'; 
         secondSpeechText = randomWord.russian;
         secondSpeechLang = 'ru-RU';
         if (randomWord.customAudio) isCustomAudioForFirstStep = true;
@@ -640,7 +643,7 @@ function nextTrainingStep() {
         firstSpeechText = randomWord.russian;
         firstSpeechLang = 'ru-RU';
         secondSpeechText = randomWord.foreign;
-        secondSpeechLang = currentLanguage === 'en' ? 'en-US' : 'fi-FI';
+        secondSpeechLang = currentLanguage === 'en' ? 'en-US' : 'et-EE';
         if (randomWord.customAudio) isCustomAudioForSecondStep = true;
     }
 
@@ -655,14 +658,41 @@ function nextTrainingStep() {
         if (val.startsWith('fake-')) {
             if (val === 'fake-ru') { forceLangFirst = 'ru-RU'; forceLangSecond = 'ru-RU'; }
             if (val === 'fake-en') { forceLangFirst = 'en-US'; forceLangSecond = 'en-US'; }
-            if (val === 'fake-et') { forceLangFirst = 'fi-FI'; forceLangSecond = 'fi-FI'; }
+            // [ИСПРАВЛЕНО]: В случае резерва ставим правильный код
+            if (val === 'fake-et') { forceLangFirst = 'et-EE'; forceLangSecond = 'et-EE'; }
         } else if (availableVoices.length > 0) {
             selectedVoice = availableVoices[parseInt(val)];
         }
     }
 
+    // [СУПЕР-ОБНОВЛЕНИЕ]: Живой эстонский язык от Института эстонского языка (EKI)
     function speakWithRobot(text, targetLang) {
-        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Озвучка роботом";
+        if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Облачная озвучка";
+
+        // Если язык эстонский, отправляем запрос на официальный живой ИИ-голос Эстонии (EKI)
+        if (targetLang.startsWith('et')) {
+            // Используем официальный открытый синтезатор EKI (голос 'mari')
+            const ekiUrl = `https://eki.ee{encodeURIComponent(text)}`;
+            const audio = new Audio(ekiUrl);
+            audio.playbackRate = currentSpeed;
+            audio.play().catch(() => {
+                // Резервный вариант Б: Открытый европейский ИИ-синтезатор для эстонского
+                const backupUrl = `https://responsivevoice.org{encodeURIComponent(text)}&lang=et&engine=g3&key=914gHh7I`;
+                const backupAudio = new Audio(backupUrl);
+                backupAudio.playbackRate = currentSpeed;
+                backupAudio.play().catch(() => {
+                    // Если интернет пропал, включаем стандартного робота устройства
+                    fallbackSpeech(text, targetLang);
+                });
+            });
+        } else {
+            // Для английского и русского оставляем стандартных качественных роботов
+            fallbackSpeech(text, targetLang);
+        }
+    }
+
+    // Базовый синтезатор речи браузера для английского и русского
+    function fallbackSpeech(text, targetLang) {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = currentSpeed;
         
@@ -673,6 +703,7 @@ function nextTrainingStep() {
         }
         window.speechSynthesis.speak(utterance);
     }
+
 
     if (isCustomAudioForFirstStep && randomWord.customAudio) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🎤 Звучит твой голос";
@@ -727,5 +758,4 @@ function initApp() {
     switchLanguage(currentLanguage);
 }
 
-// ЗАПУСК СЕССИИ И ИНИЦИАЛИЗАЦИЯ ВСЕГО ПРИЛОЖЕНИЯ
 checkSession();

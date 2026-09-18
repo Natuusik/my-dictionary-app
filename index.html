@@ -6,9 +6,7 @@
     <link rel="stylesheet" href="style.css">
     
     <!-- ПОДКЛЮЧАЕМ ОФИЦИАЛЬНУЮ БИБЛИОТЕКУ SUPABASE В САМОМ НАЧАЛЕ СТРАНИЦЫ -->
-<script src="supabase.js"></script>
-
-
+    <script src="supabase.js"></script>
 </head>
 
 <body>
@@ -26,113 +24,107 @@
                 <button onclick="handleLoginOnly()" style="flex: 1; padding: 12px; font-weight: bold; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">Войти</button>
                 <button onclick="handleRegisterOnly()" style="flex: 1; padding: 12px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer;">Регистрация</button>
             </div>
-          
-
             
             <div id="authError" style="color: #ef4444; font-size: 13px; margin-top: 10px; font-weight: 500;"></div>
         </div>
     </div>
 
-
-
+    <!-- ЭКРАН 1: НАСТРОЙКИ, ПАПКИ И СЛОВАРЬ (ГЛАВНЫЙ ЭКРАН) -->
+    <div id="mainScreen" style="display: none;">
         
-    
-        <!-- ЭКРАН 1: НАСТРОЙКИ, ПАПКИ И СЛОВАРЬ (ГЛАВНЫЙ ЭКРАН) -->
-        <div id="mainScreen" style="display: none;">
+        <!-- Информационная панель пользователя с кнопкой Выйти -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
+            <span id="userInfoText" style="font-weight: bold; color: #334155;">👤 Аккаунт: </span>
+            <button onclick="handleLogout()" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold;">Выйти</button>
+        </div>
+
+        <!-- Полки: Переключатель языков -->
+        <div class="lang-tabs">
+            <button class="tab-btn active" id="tab-en" onclick="switchLanguage('en')">Английский 🇬🇧</button>
+            <button class="tab-btn" id="tab-et" onclick="switchLanguage('et')">Эстонский 🇪🇪</button>
+        </div>
+
+        <!-- [ПЕРЕНЕСЕНО НАВЕРХ]: Общая карточка настроек аудио-тренировки (доступна на любой вкладке языка) -->
+        <div class="card" style="margin-top: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <h2 class="section-title" style="margin-top: 0;">⚙️ Настройки аудио-тренажёра:</h2>
             
-            <!-- Информационная панель пользователя с кнопкой Выйти -->
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px;">
-                <span id="userInfoText" style="font-weight: bold; color: #334155;">👤 Аккаунт: </span>
-                <button onclick="handleLogout()" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold;">Выйти</button>
+            <div style="margin-bottom: 12px;">
+                <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">Направление тренировки:</label>
+                <select id="modeSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
+                    <option value="foreign-ru">Иностранный ➡️ Русский</option>
+                    <option value="ru-foreign">Русский ➡️ Иностранный</option>
+                </select>
             </div>
-
-            <!-- Полки: Переключатель языков -->
-            <div class="lang-tabs">
-                <button class="tab-btn active" id="tab-en" onclick="switchLanguage('en')">Английский 🇬🇧</button>
-                <button class="tab-btn" id="tab-et" onclick="switchLanguage('et')">Эстонский 🇪🇪</button>
+            
+            <!-- ПОДБОР РОБОТА ОЗВУЧКИ -->
+            <div style="margin-bottom: 12px;">
+                <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">🤖 Выбор робота озвучки (для англ/рус):</label>
+                <select id="voiceSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
+                    <option value="default">Загрузка голосов...</option>
+                </select>
             </div>
-
-            <!-- Блок управления темами (папками) -->
-            <div class="card">
-                <h2 class="section-title">📂 Темы и Папки:</h2>
-                <div class="add-box">
-                    <input type="text" id="newTopicInput" placeholder="Название новой темы (например: Еда)">
-                    <button class="btn-action" onclick="createTopic()">+ Создать папку</button>
-                </div>
-                <div id="topicsContainer" class="topics-grid">
-                    <!-- Сюда JavaScript добавит папки -->
-                </div>
+            
+            <!-- ПОЛЗУНОК 1: Скорость речи -->
+            <div style="margin-bottom: 12px;">
+                <label for="speedRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">🐢 Скорость речи: <span id="speedValue">1.0</span>x</label>
+                <input type="range" id="speedRangeNew" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('speedValue').innerText = this.value">
             </div>
-
-            <!-- БЛОК СОДЕРЖИМОГО ВЫБРАННОЙ ПАПКИ (открывается при клике на папку) -->
-            <div class="card" id="folderContentBlock" style="display: none;">
-                <h2 class="section-title">
-                    <span id="activeFolderName">Тема не выбрана</span>
-                    <button class="btn-small-edit" onclick="renameActiveTopic()">✏️</button>
-                </h2>
-                
-                <!-- Настройка режима аудио-тренировки для этой папки -->
-                <div class="training-setup-box" style="margin: 15px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <div style="margin-bottom: 12px;">
-                        <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">Направление тренировки:</label>
-                        <select id="modeSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
-                            <option value="foreign-ru">Иностранный ➡️ Русский</option>
-                            <option value="ru-foreign">Русский ➡️ Иностранный</option>
-                        </select>
-                    </div>
-                    
-                    <!-- ПОДБОР РОБОТА ОЗВУЧКИ -->
-                    <div style="margin-bottom: 12px;">
-                        <label class="field-label" style="font-weight: bold; display: block; margin-bottom: 5px;">🤖 Выбор робота озвучки:</label>
-                        <select id="voiceSelectNew" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; display: block !important;">
-                            <option value="default">Загрузка голосов...</option>
-                        </select>
-                    </div>
-                    
-                    <!-- ПОЛЗУНОК 1: Скорость речи -->
-                    <div style="margin-bottom: 12px;">
-                        <label for="speedRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">🐢 Скорость речи: <span id="speedValue">1.0</span>x</label>
-                        <input type="range" id="speedRangeNew" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('speedValue').innerText = this.value">
-                    </div>
-                    
-                    <!-- ПОЛЗУНОК 2: Перерыв (пауза) между словами -->
-                    <div style="margin-bottom: 15px;">
-                        <label for="pauseRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">⏱️ Время на размышление: <span id="pauseValue">3</span> сек</label>
-                        <input type="range" id="pauseRangeNew" min="1" max="10" step="1" value="3" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('pauseValue').innerText = this.value">
-                    </div>
-
-                    <button id="btn-toggle-train" onclick="toggleTraining()" style="width: 100%; padding: 10px; font-weight: bold; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer;">🏋️ Запустить тренажёр</button>
-                </div>
-
-                <!-- Форма добавления нового слова -->
-                <h3 class="sub-title">➕ Добавить слово в эту папку:</h3>
-                <div class="add-word-form">
-                    <input type="text" id="foreignWordInput" placeholder="Слово на иностранном">
-                    <input type="text" id="russianWordInput" placeholder="Перевод на русском">
-                    <button class="btn-action" onclick="addWordToTopic()">Добавить</button>
-                </div>
-                
-                <!-- Список слов внутри папки -->
-                <div id="wordsContainer" class="words-list-box" style="margin-top: 15px;">
-                    <!-- Сюда JavaScript добавит слова -->
-                </div>
-
+            
+            <!-- ПОЛЗУНОК 2: Перерыв (пауза) между словами -->
+            <div style="margin-bottom: 15px;">
+                <label for="pauseRangeNew" style="font-size: 14px; font-weight: bold; color: #475569;">⏱️ Время на размышление: <span id="pauseValue">3</span> сек</label>
+                <input type="range" id="pauseRangeNew" min="1" max="10" step="1" value="3" style="width: 100%; margin-top: 5px;" oninput="document.getElementById('pauseValue').innerText = this.value">
             </div>
         </div>
 
-        <!-- ЭКРАН 2: АКТИВНЫЙ АУДИО-ТРЕНАЖЁР -->
-        <div class="trainer-screen" id="trainerScreen" style="display: none;">
-            <div class="current-word" id="wordDisplay">Ожидание...</div>
-            <div class="translation-word" id="translationDisplay"></div>
-            <div class="audio-type" id="audioTypeDisplay"></div>
-            <div class="timer" id="timerDisplay">Пауза 5 секунд...</div>
-            <button class="stop" onclick="stopTraining()">⏹ Остановить тренировку</button>
+        <!-- Блок управления темами (папками) -->
+        <div class="card" style="margin-top: 15px;">
+            <h2 class="section-title">📂 Темы и Папки:</h2>
+            <div class="add-box">
+                <input type="text" id="newTopicInput" placeholder="Название новой темы (например: Еда)">
+                <button class="btn-action" onclick="createTopic()">+ Создать папку</button>
+            </div>
+            <div id="topicsContainer" class="topics-grid">
+                <!-- Сюда JavaScript добавит папки -->
+            </div>
+        </div>
+
+        <!-- БЛОК СОДЕРЖИМОГО ВЫБРАННОЙ ПАПКИ (открывается при клике на папку) -->
+        <div class="card" id="folderContentBlock" style="display: none; margin-top: 15px;">
+            <h2 class="section-title">
+                <span id="activeFolderName">Тема не выбрана</span>
+                <button class="btn-small-edit" onclick="renameActiveTopic()">✏️</button>
+            </h2>
+
+            <!-- Кнопка запуска тренажёра, привязанная строго к выбранной папке -->
+            <button id="btn-toggle-train" onclick="toggleTraining()" style="width: 100%; padding: 12px; font-weight: bold; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 20px; font-size: 16px;">🏋️ Запустить тренажёр для этой папки</button>
+
+            <!-- Форма добавления нового слова -->
+            <h3 class="sub-title">➕ Добавить слово в эту папку:</h3>
+            <div class="add-word-form">
+                <input type="text" id="foreignWordInput" placeholder="Слово на иностранном">
+                <input type="text" id="russianWordInput" placeholder="Перевод на русском">
+                <button class="btn-action" onclick="addWordToTopic()">Добавить</button>
+            </div>
+            
+            <!-- Список слов внутри папки -->
+            <div id="wordsContainer" class="words-list-box" style="margin-top: 15px;">
+                <!-- Сюда JavaScript добавит слова -->
+            </div>
         </div>
     </div>
 
-    <!-- Подключаем логику скрипта -->
-  <script src="script.js?v=2"></script>
+    <!-- ЭКРАН 2: АКТИВНЫЙ АУДИО-ТРЕНАЖЁР -->
+    <div class="trainer-screen" id="trainerScreen" style="display: none;">
+        <div class="current-word" id="wordDisplay">Ожидание...</div>
+        <div class="translation-word" id="translationDisplay"></div>
+        <div class="audio-type" id="audioTypeDisplay"></div>
+        <div class="timer" id="timerDisplay">Пауза 5 секунд...</div>
+        <button class="stop" onclick="stopTraining()">⏹ Остановить тренировку</button>
+    </div>
 
+    <!-- Подключаем логику скрипта -->
+    <script src="script.js?v=2"></script>
 
 </body>
 </html>
