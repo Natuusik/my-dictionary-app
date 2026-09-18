@@ -553,7 +553,7 @@ document.addEventListener("input", (e) => {
     }
 });
 // ========================================================
-// 4.1. ЛОГИКА ТРЕНАЖЁРА И УЛУЧШЕННАЯ ОЗВУЧКА
+// 4.1. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ========================================================
 
 function toggleTraining() {
@@ -564,6 +564,7 @@ function toggleTraining() {
     }
 }
 
+// ФУНКЦИЯ: Старт тренировки
 function startTraining() {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     
@@ -587,6 +588,7 @@ function startTraining() {
     nextTrainingStep(); 
 }
 
+// ФУНКЦИЯ: Полная остановка тренировки (Кнопка Стоп)
 function stopTraining() {
     isTraining = false;
     clearTimeout(wordTimeout);
@@ -634,7 +636,6 @@ function nextTrainingStep() {
 
     if (currentMode === 'foreign-ru') {
         firstSpeechText = randomWord.foreign;
-        // [ИСПРАВЛЕНО]: Меняем fi-FI на чистый эстонский et-EE
         firstSpeechLang = currentLanguage === 'en' ? 'en-US' : 'et-EE'; 
         secondSpeechText = randomWord.russian;
         secondSpeechLang = 'ru-RU';
@@ -658,61 +659,62 @@ function nextTrainingStep() {
         if (val.startsWith('fake-')) {
             if (val === 'fake-ru') { forceLangFirst = 'ru-RU'; forceLangSecond = 'ru-RU'; }
             if (val === 'fake-en') { forceLangFirst = 'en-US'; forceLangSecond = 'en-US'; }
-            // [ИСПРАВЛЕНО]: В случае резерва ставим правильный код
             if (val === 'fake-et') { forceLangFirst = 'et-EE'; forceLangSecond = 'et-EE'; }
         } else if (availableVoices.length > 0) {
             selectedVoice = availableVoices[parseInt(val)];
         }
     }
 
-            // [СУПЕР-ОБНОВЛЕНИЕ]: Раздельная автоматическая озвучка для каждого языка
+    // Умная раздельная озвучка с ИИ-поддержкой русского и эстонского языков
     function speakWithRobot(text, targetLang) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Умная озвучка";
 
         // 1. ОЗВУЧКА ДЛЯ ЭСТОНСКОГО ЯЗЫКА (ИИ Мари от Института EKI)
-        if (targetLang.startsWith('et') || targetLang.startsWith('fi')) {
+        if (targetLang.startsWith('et')) {
             const ekiUrl = `https://eki.ee{encodeURIComponent(text)}`;
             const audio = new Audio(ekiUrl);
             audio.playbackRate = currentSpeed;
             audio.play().catch(() => {
-                // Резервный вариант, если институт EKI временно недоступен
                 fallbackSpeech(text, 'et-EE');
             });
             return;
         }
 
-        // 2. АВТОМАТИЧЕСКАЯ ОЗВУЧКА ДЛЯ АНГЛИЙСКОГО И РУССКОГО (Без акцента!)
+        // 2. [НОВОЕ] ОЗВУЧКА ДЛЯ РУССКОГО ЯЗЫКА (Качественный ИИ-голос без хрипоты)
+        if (targetLang.startsWith('ru')) {
+            const ruUrl = `https://responsivevoice.org{encodeURIComponent(text)}&lang=ru&engine=g3&key=914gHh7I`;
+            const audio = new Audio(ruUrl);
+            audio.playbackRate = currentSpeed;
+            audio.play().catch(() => {
+                fallbackSpeech(text, 'ru-RU');
+            });
+            return;
+        }
+
+        // 3. АВТОМАТИЧЕСКАЯ ОЗВУЧКА ДЛЯ АНГЛИЙСКОГО
         fallbackSpeech(text, targetLang);
     }
 
-    // Встроенный синтезатор, который САМ подбирает идеального робота под нужный язык
     function fallbackSpeech(text, targetLang) {
         if (typeof speechSynthesis === 'undefined') return;
         
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = currentSpeed;
 
-        // Получаем все голоса, доступные на твоём текущем устройстве (компьютере/планшете)
         const allVoices = window.speechSynthesis.getVoices();
-        
-        // Принудительно очищаем код языка до первых 2 букв (en, ru)
         const shortLang = targetLang.substring(0, 2).toLowerCase();
 
-        // Ищем в системе лучшего родного робота для этого конкретного слова (сначала от Google)
         let bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && v.name.includes('Google'));
         if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang));
 
-        // Если нашли родного робота (английского для 'en' или русского для 'ru'), отдаём ему слово
         if (bestVoice) {
             utterance.voice = bestVoice;
         } else {
             utterance.lang = targetLang;
         }
-
         window.speechSynthesis.speak(utterance);
     }
 
-    // ТАЙМЕРЫ И ШАГИ ТРЕНАЖЁРА
     if (isCustomAudioForFirstStep && randomWord.customAudio) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🎤 Звучит твой голос";
         const audio = new Audio(randomWord.customAudio);
@@ -760,6 +762,7 @@ function nextTrainingStep() {
 
 function handleSmartOfflineInput(text) {}
 
+// Инициализация при старте страницы
 function initApp() {
     loadData();
     loadTrainerSettings(); 
