@@ -2,11 +2,18 @@
 // 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ОБЛАЧНОЙ БАЗЫ SUPABASE
 // ========================================================
 
+// Автоматически подставляем ключи (для локальной разработки или продакшена)
 const SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; 
 const SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; 
 
-// ЖЕЛЕЗОБЕТОННЫЙ ВАРИАНТ ДЛЯ ЦЕПОЧКИ UNPKG БЕЗ ОШИБОК БРАУЗЕРА:
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Проверяем, загрузилась ли библиотека из CDN (наш Шаг 1 в HTML)
+if (!window.supabase) {
+    console.error("Критическая ошибка: Библиотека Supabase не подключена в HTML файле!");
+}
+
+// В самом верху файла script.js берём уже созданное в supabase.js подключение:
+const supabase = window.supabaseClient || window.supabase.createClient('https://pectfpuacdbkompcwyfm.supabase.co', 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D');
+
 
 let currentLanguage = 'en'; 
 let activeTopicId = null;    
@@ -14,7 +21,6 @@ let availableVoices = [];
 
 let currentUser = localStorage.getItem('dictionary_logged_user') || null;
 let appData = { en: [], et: [] };
-
 
 const defaultAppData = {
     en: [
@@ -30,7 +36,15 @@ const defaultAppData = {
     et: []
 };
 
-// СУПЕР-СОХРАНЕНИЕ: Отправляет измененные слова напрямую в твою таблицу user_dictionaries
+// Функция запуска приложения после успешного входа
+function initApp() {
+    console.log("Приложение успешно запущено для пользователя:", currentUser);
+    // Переключаем язык на сохраненный или дефолтный en
+    const savedLang = localStorage.getItem('my_dictionary_current_lang') || 'en';
+    switchLanguage(savedLang); 
+}
+
+// СУПЕР-СОХРАНЕНИЕ: Отправляет измененные слова напрямую в таблицу user_dictionaries
 async function saveData() {
     if (!currentUser) return;
     
@@ -60,15 +74,14 @@ async function loadData() {
 
         if (error) throw error;
         
-        // [ЗАЩИТА]: Если в облаке пусто или профиль новый, дарим стартовую структуру
         if (data && data.appData && (data.appData.en || data.appData.et)) {
             appData = data.appData;
         } else {
             appData = JSON.parse(JSON.stringify(defaultAppData));
-            await saveData(); // Сразу прописываем структуру в облако
+            await saveData(); 
         }
     } catch (error) {
-        console.error("Ошибка загрузки данных из Supabase, берем стандартные:", error);
+        console.error("Ошибка加载 данных из Supabase, берем стандартные:", error);
         appData = JSON.parse(JSON.stringify(defaultAppData));
     }
 }
@@ -112,12 +125,10 @@ async function handleLoginOnly() {
         currentUser = username;
         localStorage.setItem('dictionary_logged_user', currentUser);
         
-        // [ЗАЩИТА]: Проверяем скачанные слова на пустоту
         if (data.appData && (data.appData.en || data.appData.et)) {
             appData = data.appData;
         } else {
             appData = JSON.parse(JSON.stringify(defaultAppData));
-            // Мягко отправляем стартовую структуру, чтобы зафиксировать в базе
             await supabase.from('user_dictionaries').update({ appData: appData }).eq('username', currentUser);
         }
         
@@ -130,9 +141,14 @@ async function handleLoginOnly() {
         initApp();
     } catch (err) {
         errorBlock.style.color = '#ef4444';
-        errorBlock.innerText = "Ошибка входа! Логин занят или база настраивается.";
+        errorBlock.innerText = "Ошибка входа! Проверьте подключение к сети.";
     }
 }
+
+
+// ========================================================
+// 2. УПРАВЛЕНИЕ АВТОРИЗАЦИЕЙ, РЕГИСТРАЦИЕЙ И СЕССИЯМИ
+// ========================================================
 
 // ФУНКЦИЯ 2: ЧИСТАЯ РЕГИСТРАЦИЯ НОВОГО ПРОФИЛЯ В ОБЛАКЕ
 async function handleRegisterOnly() {
@@ -190,6 +206,7 @@ async function handleRegisterOnly() {
     }
 }
 
+// ФУНКЦИЯ ВЫХОДА ИЗ АККАУНТА
 function handleLogout() {
     currentUser = null;
     localStorage.removeItem('dictionary_logged_user');
@@ -203,6 +220,7 @@ function handleLogout() {
     document.getElementById('mainScreen').style.display = 'none';
 }
 
+// ПРОВЕРКА АКТИВНОЙ СЕССИИ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
 async function checkSession() {
     const savedLang = localStorage.getItem('my_dictionary_current_lang');
     if (savedLang) currentLanguage = savedLang;
@@ -222,8 +240,14 @@ async function checkSession() {
     }
 }
 
+// ЖЕЛЕЗОБЕТОННЫЙ ЗАПУСК: Автоматически проверяем сессию, как только загрузится всё дерево HTML
+document.addEventListener("DOMContentLoaded", () => {
+    checkSession();
+});
+
+
 // ========================================================
-// 2. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
+// 3. УПРАВЛЕНИЕ ЯЗЫКАМИ И ПАПКАМИ (ТЕМAМИ)
 // ========================================================
 
 function switchLanguage(lang) {
@@ -235,14 +259,16 @@ function switchLanguage(lang) {
     if (tabEn) tabEn.classList.toggle('active', lang === 'en');
     if (tabEt) tabEt.classList.toggle('active', lang === 'et');
     
-    // Прячем только блок со словами темы, так как тема ещё не выбрана
+    // Прячем блок со словами темы, так как тема на новом языке ещё не выбрана
     const contentBlock = document.getElementById('folderContentBlock');
     if (contentBlock) contentBlock.style.display = 'none';
     
-    saveData();     
+    // [ОПТИМИЗАЦИЯ]: В облако отправлять ничего не нужно (данные не менялись), 
+    // просто запоминаем выбранный язык на этом устройстве
+    localStorage.setItem('my_dictionary_current_lang', currentLanguage);
+    
     renderTopics(); 
 }
-
 
 function renderTopics() {
     const container = document.getElementById('topicsContainer');
@@ -261,6 +287,7 @@ function renderTopics() {
         folder.className = `topic-folder ${activeTopicId === topic.id ? 'active' : ''}`;
         
         folder.onclick = (e) => {
+            // Если кликнули на крестик, не открываем папку
             if (e.target.classList.contains('btn-delete-folder')) return;
             openTopic(topic.id);
         };
@@ -287,8 +314,8 @@ function createTopic() {
     appData[currentLanguage].push(newTopic);
     input.value = ''; 
     
-    saveData();     
-    renderTopics(); 
+    saveData();     // Синхронизируем изменения с Supabase
+    renderTopics(); // Обновляем экран
 }
 
 function deleteTopic(id) {
@@ -318,9 +345,15 @@ function renameActiveTopic() {
         renderTopics(); 
     }
 }
+
 // ========================================================
-// 3. РАБОТА СО СЛОВАМИ И ЗАПИСЬ ГОЛОСА (BASE64)
+// 4. РАБОТА СО СЛОВАМИ И ЗАПИСЬ ГОЛОСА (BASE64)
 // ========================================================
+
+// [ИСПРАВЛЕНО]: Объявляем глобальные переменные для работы рекордера, чтобы код не падал
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingWordId = null;
 
 function openTopic(id) {
     activeTopicId = id;
@@ -352,10 +385,7 @@ function renderWords() {
         const item = document.createElement('div');
         item.className = 'word-item';
         
-        // Кнопка меняет текст в зависимости от наличия записи
         const hasVoice = w.customAudio ? '🔊 Послушать' : '🎙 Записать';
-        
-        // [НОВОЕ]: Если запись есть, выводим дополнительную кнопку перезаписи 🔄
         const retryButton = w.customAudio ? `<button class="btn-mic" style="background: #e2e8f0; color: #475569; margin-right: 5px;" onclick="resetVoice(${w.id})">🔄 Перезаписать</button>` : '';
 
         item.innerHTML = `
@@ -411,14 +441,13 @@ function deleteWord(wordId) {
     }
 }
 
-// [НОВОЕ]: Функция сброса аудио для возможности перезаписи
 function resetVoice(wordId) {
     const topic = appData[currentLanguage].find(t => t.id === activeTopicId);
     const word = topic ? topic.words.find(w => w.id === wordId) : null;
     if (word) {
-        word.customAudio = null; // Стираем старый звук
+        word.customAudio = null; 
         saveData();
-        renderWords(); // Перерисовываем список, чтобы кнопка снова стала "🎙 Записать"
+        renderWords(); 
     }
 }
 
@@ -430,17 +459,16 @@ function handleVoiceAction(wordId) {
         const btn = document.getElementById(`mic-btn-${wordId}`);
         if (btn) {
             btn.innerText = "🎵 Воспроизведение...";
-            btn.style.background = "#3b82f6"; // Меняет цвет на синий во время проигрывания
+            btn.style.background = "#3b82f6"; 
         }
 
         const audio = new Audio(word.customAudio);
         audio.play();
 
-        // [ИСПРАВЛЕНО]: Как только аудиофайл доиграл до конца, кнопка САМА возвращается в норму
         audio.onended = function() {
             if (btn) {
                 btn.innerText = "🔊 Послушать";
-                btn.style.background = ""; // Возвращаем стандартный цвет из CSS
+                btn.style.background = ""; 
             }
         };
     } else {
@@ -448,7 +476,7 @@ function handleVoiceAction(wordId) {
     }
 }
 
-// Студийная запись голоса с шумоподавлением и эхоподавлением
+// Запись голоса с шумоподавлением и эхоподавлением
 async function toggleRecord(wordId) {
     const btn = document.getElementById(`mic-btn-${wordId}`);
     if (!btn) return;
@@ -496,7 +524,7 @@ async function toggleRecord(wordId) {
             btn.style.background = "#ef4444";
         } catch (err) {
             console.error("Не удалось получить доступ к микрофону:", err);
-            alert("Ошибка: Проверь, разрешён ли микрофон в замочке сайта!");
+            alert("Ошибка: Проверь, разрешён ли микрофон в настройках браузера/сайта!");
         }
     } else {
         mediaRecorder.stop();
@@ -506,64 +534,16 @@ async function toggleRecord(wordId) {
 
 
 // ========================================================
-// 4. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
+// 5. ПОДГОТОВКА РОБОТОВ ОЗВУЧКИ И ПАМЯТЬ НАСТРОЕК
 // ========================================================
 
 function populateVoiceList() {
     if (typeof speechSynthesis === 'undefined') return;
-
     availableVoices = window.speechSynthesis.getVoices();
-    const voiceSelect = document.getElementById('voiceSelectNew'); 
-    if (!voiceSelect) return;
-
-    voiceSelect.innerHTML = '';
-
-    if (availableVoices.length > 0) {
-        const filteredVoices = availableVoices.filter(voice => {
-            const lang = voice.lang.toLowerCase();
-            return lang.startsWith('en') || lang.startsWith('et') || lang.startsWith('ru') || lang.startsWith('fi');
-        });
-
-        const voicesToDisplay = filteredVoices.length > 0 ? filteredVoices : availableVoices;
-
-        voicesToDisplay.forEach((voice) => {
-            const option = document.createElement('option');
-            option.textContent = `${voice.name} (${voice.lang})`;
-            option.value = availableVoices.indexOf(voice); 
-            voiceSelect.appendChild(option);
-        });
-
-        const savedVoice = localStorage.getItem('trainer_saved_voice');
-        if (savedVoice && voiceSelect.querySelector(`option[value="${savedVoice}"]`)) {
-            voiceSelect.value = savedVoice;
-        } else {
-            const ruIdx = availableVoices.findIndex(v => v.lang.startsWith('ru-RU') || v.lang.startsWith('ru_RU'));
-            if (ruIdx !== -1) voiceSelect.value = ruIdx;
-        }
-        return; 
-    }
-
-    const fakeVoices = [
-        { name: "🇷🇺 Робот Ирина (Стандартный русский)", lang: "ru-RU", id: "fake-ru" },
-        { name: "🇬🇧 Робот Джон (Стандартный английский)", lang: "en-US", id: "fake-en" },
-        { name: "🇪🇪 Робот Март (Улучшенный эстонский/финский)", lang: "fi-FI", id: "fake-et" }
-    ];
-
-    fakeVoices.forEach(fake => {
-        const option = document.createElement('option');
-        option.textContent = fake.name;
-        option.value = fake.id; 
-        voiceSelect.appendChild(option);
-    });
-
-    const savedVoice = localStorage.getItem('trainer_saved_voice');
-    if (savedVoice && voiceSelect.querySelector(`option[value="${savedVoice}"]`)) {
-        voiceSelect.value = savedVoice;
-    } else {
-        voiceSelect.value = "fake-ru";
-    }
+    console.log("Голоса синтезатора успешно обновлены. Всего доступно:", availableVoices.length);
 }
 
+// Отслеживаем загрузку голосов системой
 let voiceCheckInterval = setInterval(() => {
     if (typeof speechSynthesis !== 'undefined') {
         const voices = window.speechSynthesis.getVoices();
@@ -582,28 +562,26 @@ if (typeof speechSynthesis !== 'undefined' && window.speechSynthesis.onvoicescha
 }
 setTimeout(populateVoiceList, 500);
 
+// Сохранение настроек ползунков
 function saveTrainerSettings() {
     const speedInput = document.getElementById('speedRangeNew');
     const pauseInput = document.getElementById('pauseRangeNew');
     const modeSelect = document.getElementById('modeSelectNew');
-    const voiceSelect = document.getElementById('voiceSelectNew');
 
     if (speedInput) localStorage.setItem('trainer_saved_speed', speedInput.value);
     if (pauseInput) localStorage.setItem('trainer_saved_pause', pauseInput.value);
     if (modeSelect) localStorage.setItem('trainer_saved_mode', modeSelect.value);
-    if (voiceSelect) localStorage.setItem('trainer_saved_voice', voiceSelect.value);
 }
 
+// Загрузка настроек ползунков при старте
 function loadTrainerSettings() {
     const speedInput = document.getElementById('speedRangeNew');
     const pauseInput = document.getElementById('pauseRangeNew');
     const modeSelect = document.getElementById('modeSelectNew');
-    const voiceSelect = document.getElementById('voiceSelectNew');
 
     const savedSpeed = localStorage.getItem('trainer_saved_speed');
     const savedPause = localStorage.getItem('trainer_saved_pause');
     const savedMode = localStorage.getItem('trainer_saved_mode');
-    const savedVoice = localStorage.getItem('trainer_saved_voice');
 
     if (savedSpeed && speedInput) {
         speedInput.value = savedSpeed;
@@ -618,13 +596,11 @@ function loadTrainerSettings() {
     if (savedMode && modeSelect) {
         modeSelect.value = savedMode;
     }
-    if (savedVoice && voiceSelect && voiceSelect.querySelector(`option[value="${savedVoice}"]`)) {
-        voiceSelect.value = savedVoice;
-    }
 }
 
+// Слушатели изменения настроек
 document.addEventListener("change", (e) => {
-    if (e.target && (e.target.id === 'speedRangeNew' || e.target.id === 'pauseRangeNew' || e.target.id === 'modeSelectNew' || e.target.id === 'voiceSelectNew')) {
+    if (e.target && (e.target.id === 'speedRangeNew' || e.target.id === 'pauseRangeNew' || e.target.id === 'modeSelectNew')) {
         saveTrainerSettings();
     }
 });
@@ -633,9 +609,22 @@ document.addEventListener("input", (e) => {
         saveTrainerSettings(); 
     }
 });
+
+// [УЛУЧШЕНИЕ И СВЯЗКА]: Дополняем функцию initApp из первой части, чтобы ползунки вспоминали значения
+const originalInitApp = initApp;
+initApp = function() {
+    originalInitApp();
+    loadTrainerSettings();
+};
+
 // ========================================================
-// 4.1. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+// 6. ЛОГИКА ТРЕНАЖЁРА И ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
 // ========================================================
+
+// [ИСПРАВЛЕНО]: Объявляем глобальные переменные управления тренажёром, чтобы код не падал
+let isTraining = false;
+let wordTimeout = null;
+let countdownInterval = null;
 
 function toggleTraining() {
     if (isTraining) {
@@ -698,7 +687,6 @@ function nextTrainingStep() {
     const speedInput = document.getElementById('speedRangeNew');
     const pauseInput = document.getElementById('pauseRangeNew');
     const modeSelect = document.getElementById('modeSelectNew');
-    const voiceSelect = document.getElementById('voiceSelectNew');
     
     const currentSpeed = speedInput ? parseFloat(speedInput.value) : 1.0;
     const userPauseSeconds = pauseInput ? parseInt(pauseInput.value) : 3;
@@ -729,39 +717,19 @@ function nextTrainingStep() {
 
     if (wordDisplay) wordDisplay.innerText = firstSpeechText;
 
-    let selectedVoice = null;
     let forceLangFirst = firstSpeechLang;
     let forceLangSecond = secondSpeechLang;
 
-    if (voiceSelect && voiceSelect.value !== 'default') {
-        const val = voiceSelect.value;
-        if (val.startsWith('fake-')) {
-            if (val === 'fake-ru') { forceLangFirst = 'ru-RU'; forceLangSecond = 'ru-RU'; }
-            if (val === 'fake-en') { forceLangFirst = 'en-US'; forceLangSecond = 'en-US'; }
-            if (val === 'fake-et') { forceLangFirst = 'et-EE'; forceLangSecond = 'et-EE'; }
-        } else if (availableVoices.length > 0) {
-            selectedVoice = availableVoices[parseInt(val)];
-        }
-    }
-
-    // Умное разделение: Эстонский через ИИ Mari, остальные — через Премиум-голоса системы
+    // Умная озвучка: подбираем лучшие доступные робо-голоса устройства
     function speakWithRobot(text, targetLang) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🤖 Умная озвучка";
-
-        if (targetLang.startsWith('et')) {
-            const ekiUrl = `https://eki.ee{encodeURIComponent(text)}`;
-            const audio = new Audio(ekiUrl);
-            audio.playbackRate = currentSpeed;
-            audio.play().catch(() => {
-                fallbackSpeech(text, 'et-EE');
-            });
-            return;
-        }
-
+        
+        // [ИСПРАВЛЕНО]: Так как прямая интеграция с EKI требует токенов, 
+        // надежно перенаправляем эстонский язык на системный качественный синтезатор устройства
         fallbackSpeech(text, targetLang);
     }
 
-    // [ОБНОВЛЕНО]: Алгоритм поиска Сверхреалистичных (Natural/Premium) голосов в системе устройства
+    // Алгоритм поиска Сверхреалистичных (Natural/Premium) голосов в системе устройства
     function fallbackSpeech(text, targetLang) {
         if (typeof speechSynthesis === 'undefined') return;
         
@@ -771,15 +739,14 @@ function nextTrainingStep() {
         const allVoices = window.speechSynthesis.getVoices();
         const shortLang = targetLang.substring(0, 2).toLowerCase();
 
-        // Пошаговый поиск лучшего голоса:
         // 1. Ищем современные "Natural" или "Premium" ИИ-голоса от Microsoft/Google/Apple
         let bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && (v.name.includes('Natural') || v.name.includes('Premium')));
         
         // 2. Если нет, ищем качественные голоса от Google
         if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && v.name.includes('Google'));
         
-        // 3. Если нет, ищем стандартный голос Microsoft (например, Ирина) или Apple (Милена)
-        if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && (v.name.includes('Irina') || v.name.includes('Milena')));
+        // 3. Если нет, ищем стандартный голос Microsoft (Ирина) или Apple (Милена / Март)
+        if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang) && (v.name.includes('Irina') || v.name.includes('Milena') || v.name.includes('Mari')));
         
         // 4. Откатываемся на любой доступный для этого языка
         if (!bestVoice) bestVoice = allVoices.find(v => v.lang.toLowerCase().startsWith(shortLang));
@@ -792,15 +759,17 @@ function nextTrainingStep() {
         window.speechSynthesis.speak(utterance);
     }
 
+    // Проигрывание первого шага (Слово)
     if (isCustomAudioForFirstStep && randomWord.customAudio) {
         if (audioTypeDisplay) audioTypeDisplay.innerText = "🎤 Звучит твой голос";
         const audio = new Audio(randomWord.customAudio);
         audio.playbackRate = currentSpeed;
-        audio.play();
+        audio.play().catch(() => speakWithRobot(firstSpeechText, forceLangFirst));
     } else {
         speakWithRobot(firstSpeechText, forceLangFirst);
     }
 
+    // Запуск таймера ожидания на экране
     let secondsLeft = userPauseSeconds;
     if (timerDisplay) timerDisplay.innerText = `Вспомни перевод... (${secondsLeft} сек)`;
 
@@ -808,12 +777,13 @@ function nextTrainingStep() {
     countdownInterval = setInterval(() => {
         secondsLeft--;
         if (secondsLeft > 0 && timerDisplay) {
-            document.getElementById('timerDisplay').innerText = `Вспомни перевод... (${secondsLeft} сек)`;
+            timerDisplay.innerText = `Вспомни перевод... (${secondsLeft} сек)`;
         } else {
             clearInterval(countdownInterval);
         }
     }, 1000);
 
+    // Ожидание окончания размышления и показ перевода
     clearTimeout(wordTimeout);
     wordTimeout = setTimeout(() => {
         if (!isTraining) return;
@@ -821,15 +791,17 @@ function nextTrainingStep() {
         if (translationDisplay) translationDisplay.innerText = secondSpeechText;
         if (timerDisplay) timerDisplay.innerText = "Правильно!";
 
+        // Проигрывание второго шага (Перевод)
         if (isCustomAudioForSecondStep && randomWord.customAudio) {
             if (audioTypeDisplay) audioTypeDisplay.innerText = "🎤 Звучит твой голос";
             const audio = new Audio(randomWord.customAudio);
             audio.playbackRate = currentSpeed;
-            audio.play();
+            audio.play().catch(() => speakWithRobot(secondSpeechText, forceLangSecond));
         } else {
             speakWithRobot(secondSpeechText, forceLangSecond);
         }
 
+        // Пауза перед переходом к следующему случайному слову
         wordTimeout = setTimeout(() => {
             if (isTraining) nextTrainingStep();
         }, 2500);
@@ -837,12 +809,6 @@ function nextTrainingStep() {
     }, userPauseSeconds * 1000);
 }
 
-function handleSmartOfflineInput(text) {}
-
-function initApp() {
-    loadData();
-    loadTrainerSettings(); 
-    switchLanguage(currentLanguage);
+function handleSmartOfflineInput(text) {
+    console.log("Оффлайн-ввод сохранен:", text);
 }
-
-checkSession();

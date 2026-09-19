@@ -1,75 +1,12 @@
-// Полностью совместимый локальный модуль Supabase Client v2
-const SupabaseMock = {
-    createClient: function(url, key) {
-        if (!url || !key) return null;
+// Подключение к РЕАЛЬНОМУ облаку Supabase со всеми вашими оригинальными ключами
+const REAL_SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; 
+const REAL_SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; 
 
-        const getCurrentUser = () => {
-            const token = localStorage.getItem("supabase.auth.token");
-            if (token) {
-                try {
-                    const parsed = JSON.parse(token);
-                    return parsed.currentSession?.user || null;
-                } catch (e) {
-                    return null;
-                }
-            }
-            return null;
-        };
-
-        return {
-            from: function(tableName) {
-                return {
-                    select: function() {
-                        return {
-                            eq: function() {
-                                return {
-                                    maybeSingle: function() {
-                                        const user = getCurrentUser();
-                                        const localData = user ? localStorage.getItem("dict_db_" + user.id) : null;
-                                        return Promise.resolve({
-                                            data: { app_data: localData ? JSON.parse(localData) : { en: [], et: [] } },
-                                            error: null
-                                        });
-                                    }
-                                };
-                            }
-                        };
-                    },
-                    upsert: function(payload) {
-                        const user = getCurrentUser();
-                        if (user && payload && payload.app_data) {
-                            localStorage.setItem("dict_db_" + user.id, JSON.stringify(payload.app_data));
-                        }
-                        return Promise.resolve({ error: null });
-                    }
-                };
-            },
-
-            auth: {
-                signUp: function(credentials) {
-                    const fakeUser = { id: "usr_" + Date.now(), email: credentials.email };
-                    const fakeSession = { currentSession: { access_token: "tok_" + Date.now(), user: fakeUser } };
-                    localStorage.setItem("supabase.auth.token", JSON.stringify(fakeSession));
-                    return Promise.resolve({ data: { user: fakeUser }, error: null });
-                },
-                signInWithPassword: function(credentials) {
-                    const fakeUser = { id: "usr_active", email: credentials.email };
-                    const fakeSession = { currentSession: { access_token: "tok_active", user: fakeUser } };
-                    localStorage.setItem("supabase.auth.token", JSON.stringify(fakeSession));
-                    return Promise.resolve({ data: { user: fakeUser, session: fakeSession.currentSession }, error: null });
-                },
-                // ИСПРАВЛЕНО: Добавлена асинхронная проверка пользователя для script.js
-                getUser: function() {
-                    const user = getCurrentUser();
-                    return Promise.resolve({ data: { user: user } });
-                },
-                signOut: function() {
-                    localStorage.removeItem("supabase.auth.token");
-                    return Promise.resolve({ error: null });
-                }
-            }
-        };
-    }
-};
-
-window.Supabase = SupabaseMock;
+// Если библиотека из CDN (в HTML) загрузилась, создаем настоящий облачный мост
+if (window.supabase && window.supabase.createClient) {
+    // Инициализируем клиент, который будут использовать все наши скрипты
+    window.supabaseClient = window.supabase.createClient(REAL_SUPABASE_URL, REAL_SUPABASE_KEY);
+    console.log("☁️ Облачный клиент Supabase успешно инициализирован с полным ключом!");
+} else {
+    console.error("Ошибка: Библиотека Supabase CDN не найдена. Проверьте теги в index.html");
+}

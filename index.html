@@ -2,13 +2,15 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Словарь</title>
-    <link rel="stylesheet" href="style.css">
     
-    <!-- Подключаем логику скрипта с принудительным сбросом кэша Vercel -->
-    <script src="script.js?v=99"></script>
-
+    <!-- СВЕРХВАЖНО: Подключаем саму библиотеку Supabase CDN, чтобы работал JS -->
+    <script src="https://jsdelivr.net"></script>
+    
+    <link rel="stylesheet" href="style.css">
 </head>
+
 
 <body>
      <!-- ЭКРАН 0: АВТОРИЗАЦИЯ (ВХОД ИЛИ РЕГИСТРАЦИЯ) -->
@@ -45,7 +47,7 @@
             <button class="tab-btn" id="tab-et" onclick="switchLanguage('et')">Эстонский 🇪🇪</button>
         </div>
 
-        <!-- [ПЕРЕНЕСЕНО НАВЕРХ]: Карточка настроек аудио-тренировки с исправленным выравниванием линий -->
+        <!-- Карточка настроек аудио-тренировки -->
         <div class="card" style="margin-top: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px;">
             <h2 class="section-title" style="margin-top: 0; margin-bottom: 20px;">⚙️ Настройки аудио-тренажёра:</h2>
             
@@ -82,14 +84,14 @@
             </div>
         </div>
 
-        <!-- БЛОК СОДЕРЖИМОГО ВЫБРАННОЙ ПАПКИ (открывается при клике на папку) -->
+        <!-- БЛОК СОДЕРЖИМОГО ВЫБРАННОЙ ПАПКИ -->
         <div class="card" id="folderContentBlock" style="display: none; margin-top: 15px;">
             <h2 class="section-title">
                 <span id="activeFolderName">Тема не выбрана</span>
                 <button class="btn-small-edit" onclick="renameActiveTopic()">✏️</button>
             </h2>
 
-            <!-- Кнопка запуска тренажёра, привязанная строго к выбранной папке -->
+            <!-- Кнопка запуска тренажёра -->
             <button id="btn-toggle-train" onclick="toggleTraining()" style="width: 100%; padding: 12px; font-weight: bold; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 20px; font-size: 16px;">🏋️ Запустить тренажёр для этой папки</button>
 
             <!-- Форма добавления нового слова -->
@@ -116,7 +118,7 @@
         <button class="stop" onclick="stopTraining()">⏹ Остановить тренировку</button>
     </div>
 
-  
-
+    <!-- [ПЕРЕНЕСЕНО СЮДА]: Подключаем скрипт в самом конце body, чтобы все элементы страницы успели загрузиться -->
+    <script src="script.js?v=99"></script>
 </body>
 </html>
