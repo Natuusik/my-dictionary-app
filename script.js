@@ -1,44 +1,19 @@
+
 // ========================================================
-// 1. УМНАЯ АВТО-ЗАГРУЗКА БАЗЫ ДАННЫХ SUPABASE
+// 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ОБЛАЧНОЙ БАЗЫ SUPABASE
 // ========================================================
 
 const SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; 
 const SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; 
-let supabase = null;
 
-// Функция, которая принудительно загружает Supabase в память браузера
-function forceLoadSupabase() {
-    if (window.supabase && window.supabase.createClient) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log("☁️ Supabase успешно подключен из памяти!");
-        return true;
-    }
-    
-    console.log("⏳ Пробуем экстренное подключение библиотеки...");
-    const script = document.createElement('script');
-    
-    // [ИСПРАВЛЕНО]: Указана прямая рабочая ссылка на библиотеку Supabase JS вместо главной страницы сайта
-    script.src = "https://cloudflare.com";
-    script.async = false;
-    
-    script.onload = () => {
-        if (window.supabase && window.supabase.createClient) {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log("🎯 Экстренное подключение Supabase прошло успешно!");
-        } else {
-            console.error("Не удалось инициализировать клиент после загрузки скрипта.");
-        }
-    };
-    
-    script.onerror = () => {
-        console.error("Критическая ошибка: Не удалось загрузить файл Supabase с CDN.");
-    };
-    
-    document.head.appendChild(script);
+// Так как библиотека лежит локально в проекте, она подключится мгновенно
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+if (!supabase) {
+    console.error("Критическая ошибка: Не удалось инициализировать Supabase из локального файла!");
+} else {
+    console.log("☁️ Облачная база данных Supabase успешно подключена локально!");
 }
-
-// Запускаем авто-подключение немедленно
-forceLoadSupabase();
 
 let currentLanguage = 'en'; 
 let activeTopicId = null;    
@@ -60,6 +35,12 @@ const defaultAppData = {
     ],
     et: []
 };
+
+function initApp() {
+    console.log("Приложение успешно запущено для пользователя:", currentUser);
+    const savedLang = localStorage.getItem('my_dictionary_current_lang') || 'en';
+    switchLanguage(savedLang); 
+}
 
 // Функция запуска приложения после успешного входа
 function initApp() {
