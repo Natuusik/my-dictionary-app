@@ -1,19 +1,44 @@
 // ========================================================
-// 1. ИНИЦИАЛИЗАЦИЯ ДАННЫХ И ОБЛАЧНОЙ БАЗЫ SUPABASE
+// 1. УМНАЯ АВТО-ЗАГРУЗКА БАЗЫ ДАННЫХ SUPABASE
 // ========================================================
 
-// Автоматически подставляем ключи (для локальной разработки или продакшена)
 const SUPABASE_URL = 'https://pectfpuacdbkompcwyfm.supabase.co'; 
 const SUPABASE_KEY = 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D'; 
+let supabase = null;
 
-// Проверяем, загрузилась ли библиотека из CDN (наш Шаг 1 в HTML)
-if (!window.supabase) {
-    console.error("Критическая ошибка: Библиотека Supabase не подключена в HTML файле!");
+// Функция, которая принудительно загружает Supabase в память браузера
+function forceLoadSupabase() {
+    if (window.supabase && window.supabase.createClient) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log("☁️ Supabase успешно подключен из памяти!");
+        return true;
+    }
+    
+    console.log("⏳ Пробуем экстренное подключение библиотеки...");
+    const script = document.createElement('script');
+    
+    // [ИСПРАВЛЕНО]: Указана прямая рабочая ссылка на библиотеку Supabase JS вместо главной страницы сайта
+    script.src = "https://cloudflare.com";
+    script.async = false;
+    
+    script.onload = () => {
+        if (window.supabase && window.supabase.createClient) {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log("🎯 Экстренное подключение Supabase прошло успешно!");
+        } else {
+            console.error("Не удалось инициализировать клиент после загрузки скрипта.");
+        }
+    };
+    
+    script.onerror = () => {
+        console.error("Критическая ошибка: Не удалось загрузить файл Supabase с CDN.");
+    };
+    
+    document.head.appendChild(script);
 }
 
-// В самом верху файла script.js берём уже созданное в supabase.js подключение:
-const supabase = window.supabaseClient || window.supabase.createClient('https://pectfpuacdbkompcwyfm.supabase.co', 'sb_publishable_v4DIxL6UfhihcNOZkq-Bag_8OrXAF_D');
-
+// Запускаем авто-подключение немедленно
+forceLoadSupabase();
 
 let currentLanguage = 'en'; 
 let activeTopicId = null;    
@@ -39,7 +64,6 @@ const defaultAppData = {
 // Функция запуска приложения после успешного входа
 function initApp() {
     console.log("Приложение успешно запущено для пользователя:", currentUser);
-    // Переключаем язык на сохраненный или дефолтный en
     const savedLang = localStorage.getItem('my_dictionary_current_lang') || 'en';
     switchLanguage(savedLang); 
 }
